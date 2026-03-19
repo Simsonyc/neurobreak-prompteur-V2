@@ -1260,14 +1260,14 @@ function ensureFocusLayer() {
   background-image:
     linear-gradient(to right,
       transparent calc(33.333% - 1px),
-      rgba(255, 215, 0, 0.50) calc(33.333% - 1px),
-      rgba(255, 215, 0, 0.50) calc(33.333% + 1px),
+      rgba(255, 215, 0, 0.80) calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.80) calc(33.333% + 1px),
       transparent calc(33.333% + 1px)),
 
     linear-gradient(to right,
       transparent calc(66.666% - 1px),
-      rgba(255, 215, 0, 0.50) calc(66.666% - 1px),
-      rgba(255, 215, 0, 0.50) calc(66.666% + 1px),
+      rgba(255, 215, 0, 0.80) calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.80) calc(66.666% + 1px),
       transparent calc(66.666% + 1px));
 }
 
@@ -1278,14 +1278,14 @@ function ensureFocusLayer() {
   background-image:
     linear-gradient(to bottom,
       transparent calc(33.333% - 1px),
-      rgba(255, 215, 0, 0.50) calc(33.333% - 1px),
-      rgba(255, 215, 0, 0.50) calc(33.333% + 1px),
+      rgba(255, 215, 0, 0.80) calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.80) calc(33.333% + 1px),
       transparent calc(33.333% + 1px)),
 
     linear-gradient(to bottom,
       transparent calc(66.666% - 1px),
-      rgba(255, 215, 0, 0.50) calc(66.666% - 1px),
-      rgba(255, 215, 0, 0.50) calc(66.666% + 1px),
+      rgba(255, 215, 0, 0.80) calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.80) calc(66.666% + 1px),
       transparent calc(66.666% + 1px));
 }
 
