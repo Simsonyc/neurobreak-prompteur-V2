@@ -382,25 +382,25 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
 });
   }
       function buildRecordingStream() {
-    const videoStream = camera?.getStream?.();
-    const audioStream = audioEngine?.getStream?.();
+  const videoStream = camera?.getRecordingStream?.() || camera?.getStream?.();
+  const audioStream = audioEngine?.getStream?.();
 
-    const videoTracks = videoStream?.getVideoTracks?.() || [];
-    const audioTracks = audioStream?.getAudioTracks?.() || [];
+  const videoTracks = videoStream?.getVideoTracks?.() || [];
+  const audioTracks = audioStream?.getAudioTracks?.() || [];
 
-    if (!videoTracks.length) {
-      throw new Error("Recorder: aucune piste vidéo caméra disponible.");
-    }
-
-    if (!audioTracks.length) {
-      throw new Error("Recorder: aucune piste audio micro disponible.");
-    }
-
-    return new MediaStream([
-      ...videoTracks,
-      ...audioTracks,
-    ]);
+  if (!videoTracks.length) {
+    throw new Error("Recorder: aucune piste vidéo caméra disponible.");
   }
+
+  if (!audioTracks.length) {
+    throw new Error("Recorder: aucune piste audio micro disponible.");
+  }
+
+  return new MediaStream([
+    ...videoTracks,
+    ...audioTracks,
+  ]);
+}
   function formatRecDuration(ms) {
     const totalSec = Math.max(0, Math.floor(ms / 1000));
     const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
