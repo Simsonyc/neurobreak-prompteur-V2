@@ -264,6 +264,7 @@ handleOrientation();
 </div>
 
 <div class="nbp-focus-text" role="region" aria-label="Texte en focus">
+<div class="nbp-rule-of-thirds"></div>
   <div class="nbp-reading-zone"></div><div class="nbp-focus-inner"></div>
 </div>
 <div class="nbp-focus-bottom">
@@ -1221,7 +1222,7 @@ function ensureFocusLayer() {
   background:rgba(0,0,0,0.60);
   box-shadow:0 0 0 1px rgba(0,0,0,0.12) inset;
   pointer-events:none;
-  z-index:1;
+  z-index:2;
 }
 .nbp-focus:not(.has-adv) .nbp-advanced{ display:none; }
 .nbp-focus .nbp-advanced{
@@ -1245,6 +1246,50 @@ function ensureFocusLayer() {
 .nbp-row{ padding: 4px 0; gap: 8px; grid-template-columns: 58px 1fr; }
 .nbp-row input[type="range"]{ height: 12px; }
 .nbp-val{ min-width: 44px; padding: 5px 7px; }
+.nbp-rule-of-thirds{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:1;
+}
+
+.nbp-rule-of-thirds::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(to right,
+      transparent calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.50) calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.50) calc(33.333% + 1px),
+      transparent calc(33.333% + 1px)),
+
+    linear-gradient(to right,
+      transparent calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.50) calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.50) calc(66.666% + 1px),
+      transparent calc(66.666% + 1px));
+}
+
+.nbp-rule-of-thirds::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(to bottom,
+      transparent calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.50) calc(33.333% - 1px),
+      rgba(255, 215, 0, 0.50) calc(33.333% + 1px),
+      transparent calc(33.333% + 1px)),
+
+    linear-gradient(to bottom,
+      transparent calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.50) calc(66.666% - 1px),
+      rgba(255, 215, 0, 0.50) calc(66.666% + 1px),
+      transparent calc(66.666% + 1px));
+}
+
+    
 
       .nbp-focus-inner{
         position:absolute;
@@ -1258,7 +1303,7 @@ function ensureFocusLayer() {
         line-height: 1.45;
         color: #fff;
 		text-shadow: 0 2px 10px rgba(0,0,0,0.60);
-  z-index: 2;
+  z-index: 4;
         will-change: transform;
       }
 
@@ -1281,6 +1326,29 @@ function ensureFocusLayer() {
     grid-template-columns: 1fr;
     align-items: start;
   }
+}
+/* =====================================================
+   Landscape layout for focus mode
+   ===================================================== */
+
+.nb-landscape .nbp-focus-bottom{
+  position:absolute;
+  right:14px;
+  bottom:14px;
+  left:auto;
+  top:auto;
+  width:240px;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  align-items:stretch;
+  gap:14px;
+  z-index:6;
+}
+
+.nb-landscape .nbp-focus-text{
+  inset:64px 14px 14px 14px;
 }
     `;
     document.head.appendChild(style);
