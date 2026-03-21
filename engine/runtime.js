@@ -156,6 +156,7 @@ export function createRuntime({ core, motion, audio, semantic, ui, clock } = {})
     isDragging: dragActive,
     deltaY: dragDeltaY,
     lastSilenceDurationMs: renderState.lastSilenceDurationMs,
+       silenceDelayMs: renderState.silenceDelayMs,  // ← ajouter ceci
   },
   dt
 );
