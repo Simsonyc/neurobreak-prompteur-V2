@@ -57,6 +57,7 @@ import { STATES, EVENTS } from "../engine/contracts.js";
 import { createDirectorMode } from "./director-mode.js";
 import { createCameraModule } from "./camera-module.js";
 import { createVideoRecorder } from "./video-recorder.js";
+import { createMp4Converter } from "./mp4-converter.js";
 
 export function createUIShell() {
     let dispatch = null;
@@ -89,9 +90,10 @@ window.addEventListener("resize", handleOrientation);
 window.addEventListener("orientationchange", handleOrientation);
 // camera (SELFIE_FOCUS)
     let camera = null;
-  let recorder = null;
-  let audioEngine = null;
-  let $focusRecBtn = null;
+let recorder = null;
+let mp4Converter = null;
+let audioEngine = null;
+let $focusRecBtn = null;
   let taCommitTimer = null;
   // DOM refs
   let $app, $topbar, $modeSelfie, $statusPill;
@@ -100,6 +102,8 @@ window.addEventListener("orientationchange", handleOrientation);
 
     let $focusOverlay, $focusTextWrap, $focusTextInner, $focusWidthRange, $focusWidthValue, $readingZone, $focusZoneRange, $focusZoneValue, $focusPromptBtn;
 let $focusBtnPause, $focusBtnStop, $focusHint, $focusRecStatus;
+let $exportModal, $exportBtnWebm, $exportBtnMp4, $exportBtnRetake, $exportBtnClose;
+let lastRecordingResult = null;
 let textWidthPercent = 75, readingZoneTop = 38, promptManualArmed = false;
 const initialTextOffsetY = 120;
 
@@ -197,9 +201,10 @@ handleOrientation();
     setAdvInput("EV_SET_THRESHOLD_RMS", saved.thresholdRms);
     setAdvInput("EV_SET_SILENCE_DELAY", saved.silenceDelayMs);
   }
-  // camera module mounted behind focus overlay
+    // camera module mounted behind focus overlay
   camera = createCameraModule($focusOverlay);
   recorder = createVideoRecorder();
+  mp4Converter = createMp4Converter();
 }
 
 
@@ -283,6 +288,27 @@ handleOrientation();
 </label>
 <div class="nbp-focus-hint">Glisse pour ajuster (manual drag)</div>
       </div>
+	  <div class="nbp-export-modal" aria-hidden="true">
+  <div class="nbp-export-card">
+    <div class="nbp-export-title">Export de la vidéo</div>
+    <div class="nbp-export-text">Votre prise est prête.</div>
+
+    <div class="nbp-export-actions">
+      <button class="nbp-btn nbp-btn-primary" type="button" data-action="export-webm">
+        Télécharger en WebM
+      </button>
+      <button class="nbp-btn" type="button" data-action="export-mp4">
+        Convertir en MP4
+      </button>
+      <button class="nbp-btn" type="button" data-action="export-retake">
+        Refaire une prise
+      </button>
+      <button class="nbp-btn nbp-btn-ghost" type="button" data-action="export-close">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
     `;
 
     root.appendChild($app);
@@ -314,6 +340,11 @@ $focusBtnPause = $app.querySelector('[data-action="focus-pause"]');
 $focusBtnStop = $app.querySelector('[data-action="focus-stop"]');
 $focusHint = $app.querySelector(".nbp-focus-hint");
 $focusRecStatus = $app.querySelector(".nbp-focus-rec-status");
+$exportModal = $app.querySelector(".nbp-export-modal");
+$exportBtnWebm = $app.querySelector('[data-action="export-webm"]');
+$exportBtnMp4 = $app.querySelector('[data-action="export-mp4"]');
+$exportBtnRetake = $app.querySelector('[data-action="export-retake"]');
+$exportBtnClose = $app.querySelector('[data-action="export-close"]');
 $focusWidthRange?.addEventListener("input", (e) => { textWidthPercent = Number(e.target.value) || 75; if ($focusWidthValue) $focusWidthValue.textContent = `${textWidthPercent}%`; if ($focusTextInner) { $focusTextInner.style.maxWidth = `${textWidthPercent}%`; $focusTextInner.style.marginLeft = "auto"; $focusTextInner.style.marginRight = "auto"; } });
 $focusZoneRange?.addEventListener("input", (e) => { readingZoneTop = Number(e.target.value) || 38; if ($focusZoneValue) $focusZoneValue.textContent = `${readingZoneTop}%`; if ($readingZone) $readingZone.style.top = `${readingZoneTop}%`; });
     // HOME tweaks V2.0 (UI-only)
@@ -330,7 +361,7 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
     <label class="nbp-row"><span>Speed</span><span class="nbp-control"><input data-k="EV_SET_SCROLL_SPEED" type="range" min="5" max="70" step="1" value="28"><span class="nbp-val">28</span></span></label>
     <label class="nbp-row"><span>Font</span><span class="nbp-control"><input data-k="EV_SET_FONT_SIZE" type="range" min="14" max="48" step="1" value="24"><span class="nbp-val">24</span></span></label>
     <label class="nbp-row"><span>Weight</span><span class="nbp-control"><input data-k="EV_SET_FONT_WEIGHT" type="range" min="200" max="900" step="100" value="600"><span class="nbp-val">600</span></span></label>
-    <label class="nbp-row"><span>RMS</span><span class="nbp-control"><input data-k="EV_SET_THRESHOLD_RMS" type="range" min="0" max="0.03" step="0.001" value="0.006"><span class="nbp-val">0.006</span></span></label>
+    <label class="nbp-row"><span>RMS</span><span class="nbp-control"><input data-k="EV_SET_THRESHOLD_RMS" type="range" min="0.005" max="0.15" step="0.005" value="0.02"><span class="nbp-val">0.006</span></span></label>
     <label class="nbp-row"><span>Silence ms</span><span class="nbp-control"><input data-k="EV_SET_SILENCE_DELAY" type="range" min="50" max="600" step="25" value="180"><span class="nbp-val">180</span></span></label>
   </div>`;
         $focusOverlay.appendChild($adv); // Advanced vit dans le Focus
@@ -472,7 +503,9 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
 
     updateRecButton();
   }
-
+function makeMp4FileName() {
+  return `neurobreak-selfie-${Date.now()}.mp4`;
+}
     function downloadRecording(result) {
     const url = typeof result?.url === "string" ? result.url : "";
     if (!url) return;
@@ -490,6 +523,18 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
       a.remove();
     }
   }
+  function openExportModal(result) {
+  lastRecordingResult = result || null;
+  if (!$exportModal) return;
+  $exportModal.classList.add("is-open");
+  $exportModal.setAttribute("aria-hidden", "false");
+}
+
+function closeExportModal() {
+  if (!$exportModal) return;
+  $exportModal.classList.remove("is-open");
+  $exportModal.setAttribute("aria-hidden", "true");
+}
 
       async function finalizeRecordingIfNeeded() {
     if (!recorder) return null;
@@ -570,27 +615,30 @@ $btnStart?.addEventListener("click", () => {
         updateRecButton();
       }
     });
+$focusBtnStop.addEventListener("click", async () => {
+  if (isStopBusy) return;
 
-        $focusBtnStop.addEventListener("click", async () => {
-      if (isStopBusy) return;
+  isStopBusy = true;
+  $focusBtnStop.disabled = true;
+  if ($focusRecBtn) $focusRecBtn.disabled = true;
 
-      isStopBusy = true;
-      $focusBtnStop.disabled = true;
-      if ($focusRecBtn) $focusRecBtn.disabled = true;
+  try {
+    const result = await finalizeRecordingIfNeeded();
+    dispatch({ type: EVENTS.STOP });
 
-      try {
-        const result = await finalizeRecordingIfNeeded();
-        if (result) downloadRecording(result);
-      } catch (err) {
-        console.error("STOP finalize recording error:", err);
-      } finally {
-        dispatch({ type: EVENTS.STOP });
-        isStopBusy = false;
-        $focusBtnStop.disabled = false;
-        if ($focusRecBtn) $focusRecBtn.disabled = false;
-        updateRecButton();
-      }
-    });
+    if (result) {
+      openExportModal(result);
+    }
+  } catch (err) {
+    console.error("STOP finalize recording error:", err);
+    dispatch({ type: EVENTS.STOP });
+  } finally {
+    isStopBusy = false;
+    $focusBtnStop.disabled = false;
+    if ($focusRecBtn) $focusRecBtn.disabled = false;
+    updateRecButton();
+  }
+});
 
         $focusPromptBtn = $app.querySelector('[data-action="focus-pause"]');
     $focusPromptBtn?.addEventListener("click", () => {
@@ -625,16 +673,111 @@ $app.querySelector('[data-action="focus-home"]')?.addEventListener("click", asyn
 
   try {
     const result = await finalizeRecordingIfNeeded();
-    if (result) downloadRecording(result);
+    dispatch({ type: EVENTS.STOP });
+
+    if (result) {
+      openExportModal(result);
+    }
   } catch (err) {
     console.error("HOME finalize recording error:", err);
-  } finally {
     dispatch({ type: EVENTS.STOP });
+  } finally {
     isStopBusy = false;
     $focusBtnStop.disabled = false;
     if ($focusRecBtn) $focusRecBtn.disabled = false;
     updateRecButton();
   }
+});
+$exportBtnWebm?.addEventListener("click", () => {
+  if (lastRecordingResult) {
+    downloadRecording(lastRecordingResult);
+  }
+  closeExportModal();
+});
+
+$exportBtnMp4?.addEventListener("click", async () => {
+  if (!lastRecordingResult?.blob || !mp4Converter) return;
+
+  const previousLabel = $exportBtnMp4.textContent;
+  const previousWebmLabel = $exportBtnWebm?.textContent || "";
+  const previousRetakeLabel = $exportBtnRetake?.textContent || "";
+  const previousCloseLabel = $exportBtnClose?.textContent || "";
+
+  try {
+    $exportBtnMp4.disabled = true;
+    if ($exportBtnWebm) $exportBtnWebm.disabled = true;
+    if ($exportBtnRetake) $exportBtnRetake.disabled = true;
+    if ($exportBtnClose) $exportBtnClose.disabled = true;
+
+    $exportBtnMp4.textContent = "Conversion MP4...";
+
+    const mp4Result = await mp4Converter.convertBlobToMp4(lastRecordingResult.blob, {
+      fileName: makeMp4FileName(),
+      onProgress: ({ step, ratio }) => {
+        if (step === "converting") {
+          const pct = Math.max(0, Math.min(100, Math.round((ratio || 0) * 100)));
+          $exportBtnMp4.textContent = `Conversion MP4... ${pct}%`;
+        }
+      },
+      onLog: (message) => {
+        console.log("[MP4]", message);
+      },
+    });
+
+    mp4Converter.downloadMp4(mp4Result);
+    mp4Converter.revokeUrl(mp4Result);
+    closeExportModal();
+  } catch (err) {
+    console.error("MP4 conversion error:", err);
+    alert("La conversion MP4 a échoué sur cet appareil ou ce navigateur.");
+  } finally {
+    $exportBtnMp4.disabled = false;
+    if ($exportBtnWebm) $exportBtnWebm.disabled = false;
+    if ($exportBtnRetake) $exportBtnRetake.disabled = false;
+    if ($exportBtnClose) $exportBtnClose.disabled = false;
+
+    $exportBtnMp4.textContent = previousLabel;
+    if ($exportBtnWebm) $exportBtnWebm.textContent = previousWebmLabel;
+    if ($exportBtnRetake) $exportBtnRetake.textContent = previousRetakeLabel;
+    if ($exportBtnClose) $exportBtnClose.textContent = previousCloseLabel;
+  }
+});
+
+$exportBtnRetake?.addEventListener("click", () => {
+  closeExportModal();
+
+  // Reset état UI recording
+  recStartedAt = 0;
+  recPausedAccumMs = 0;
+  recPauseStartedAt = 0;
+
+  // Reset mémoire export
+  lastRecordingResult = null;
+
+  // Reset recorder si possible
+  try {
+    recorder?.reset?.();
+  } catch (err) {
+    console.warn("Retake: recorder reset skipped", err);
+  }
+
+  // Reset bouton REC
+  updateRecButton();
+
+  // Reset scroll visuel
+  if ($focusTextInner) {
+    $focusTextInner.style.transform = `translate3d(0, ${initialTextOffsetY}px, 0)`;
+  }
+
+  // Relance une nouvelle session focus, prête à tourner
+  runtimeDispatch({ type: EVENTS.START_FOCUS });
+  requestAnimationFrame(() => {
+    dispatch({ type: EVENTS.PAUSE_MANUAL });
+  });
+});
+
+$exportBtnClose?.addEventListener("click", () => {
+  closeExportModal();
 });
 
     // pointer drag (focus only; motion module may listen to DRAG payload)
@@ -1569,6 +1712,51 @@ function ensureFocusLayer() {
       }
       .nb-landscape .nbp-focus-text{
         inset:68px 14px 14px 14px;
+      }
+	        .nbp-export-modal{
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 10050;
+        padding: 20px;
+      }
+
+      .nbp-export-modal.is-open{
+        display: flex;
+      }
+
+      .nbp-export-card{
+        width: min(420px, 100%);
+        border: 1px solid var(--nbp-border);
+        background: rgba(10,10,18,0.94);
+        border-radius: 18px;
+        box-shadow: var(--nbp-shadow);
+        padding: 22px;
+      }
+
+      .nbp-export-title{
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        margin-bottom: 10px;
+        color: var(--nbp-text);
+      }
+
+      .nbp-export-text{
+        font-size: 13px;
+        color: var(--nbp-muted);
+        margin-bottom: 18px;
+        font-family: var(--nbp-font-mono);
+      }
+
+      .nbp-export-actions{
+        display: grid;
+        gap: 10px;
       }
     `;
     document.head.appendChild(style);

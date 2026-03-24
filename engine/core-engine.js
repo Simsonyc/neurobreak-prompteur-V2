@@ -19,7 +19,7 @@ function createCoreState() {
     scrollSpeed: 80,
     fontSize: 24,
     fontWeight: 600,
-    thresholdRms: 0.08,
+    thresholdRms: 0.02,
     silenceDelayMs: 900,
     silenceStartedAt: 0,
     lastSilenceDurationMs: 0,

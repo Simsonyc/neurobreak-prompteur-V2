@@ -1,0 +1,26 @@
+{
+  "name": "neurobreak-prompteur",
+  "version": "1.0.0",
+  "description": "",
+  "main": "boot.v2.0.0.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Simsonyc/neurobreak-prompteur.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Simsonyc/neurobreak-prompteur/issues"
+  },
+  "homepage": "https://github.com/Simsonyc/neurobreak-prompteur#readme",
+  "dependencies": {
+    "@ffmpeg/core": "^0.12.6",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1"
+  }
+}

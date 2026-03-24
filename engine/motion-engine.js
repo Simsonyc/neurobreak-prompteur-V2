@@ -31,7 +31,7 @@ export function createMotionEngine(options = {}) {
   // Unités arbitraires: “1” peut représenter 1px, 1/10 de ligne, etc. (à mapper côté UI).
   const cfg = {
     // Progression douce au redémarrage
-    runAccel: typeof options.runAccel === "number" ? options.runAccel : 6.0, // (unités/s²) vers targetSpeed
+    runAccel: typeof options.runAccel === "number" ? options.runAccel : 120.0, // (unités/s²) vers targetSpeed
     runDecel: typeof options.runDecel === "number" ? options.runDecel : 10.0, // freinage quand on quitte RUN
 
     // Inertie après drag

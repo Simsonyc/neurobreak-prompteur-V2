@@ -69,7 +69,7 @@ function safeCreate(factory, args) {
 
   // Engines instances
   const core = safeCreate(createCoreEngine);
-  const motion = safeCreate(createMotionEngine);
+  const motion = safeCreate(createMotionEngine, { runAccel: 120.0 });
   const audio = safeCreate(createAudioEngine);
   const semantic = safeCreate(createSemanticEngine);
 
