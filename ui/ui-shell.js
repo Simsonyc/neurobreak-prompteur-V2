@@ -107,6 +107,118 @@ let lastRecordingResult = null;
 let textWidthPercent = 75, readingZoneTop = 38, promptManualArmed = false;
 const initialTextOffsetY = 120;
 
+// ── Variables état nouvelle UI focus (portée createUIShell) ──
+let nbfSpeed = 28;
+const nbfRmsList = [0.001,0.002,0.003,0.004,0.006,0.008,0.01,0.015,0.02,0.03,0.05,0.07];
+let nbfRmsIdx = 4;
+let nbfFontSize = 24;
+const nbfWeightList = [300,400,500,600,700,800];
+let nbfWeightIdx = 3;
+let nbfSilDelay = 650;
+let nbfRzTopPct = 0.38;
+let nbfRzHeight = 72;
+let nbfTimerInterval = null;
+let nbfVDragging = false, nbfVDragStartY = 0, nbfVDragStartPct = 0;
+
+// Refs DOM nouvelles (initialisées dans mount)
+let $nbfStatusDot, $nbfStatusTxt, $nbfRecTimer, $nbfRecTimerDot, $nbfRecTimerVal;
+let $nbfMicState, $nbfSpeedVal, $nbfRmsVal, $nbfPromptIcon, $nbfPromptLbl;
+let $nbfRecPauseIcon, $nbfRecPauseLbl, $nbfRecDot, $nbfRecPauseBtn, $nbfAdvOverlay;
+let $nbfAdvFontVal, $nbfAdvWeightVal, $nbfAdvSilVal, $nbfVThumb, $nbfVTrack;
+let $nbfMicCanvas = null, nbfMicCtx = null;
+const nbfMicHistory = new Array(60).fill(0);
+
+// ── Fonctions timer ──
+function nbfFormatTime(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
+}
+function nbfStartTimer() {
+  if ($nbfRecTimer) $nbfRecTimer.style.opacity = "1";
+  if ($nbfRecTimerDot) { $nbfRecTimerDot.style.background="#ef4444"; $nbfRecTimerDot.style.animationPlayState="running"; }
+  clearInterval(nbfTimerInterval);
+  nbfTimerInterval = setInterval(() => {
+    const elapsed = Date.now() - recStartedAt - recPausedAccumMs;
+    if ($nbfRecTimerVal) $nbfRecTimerVal.textContent = nbfFormatTime(elapsed);
+  }, 500);
+}
+function nbfPauseTimer() {
+  clearInterval(nbfTimerInterval);
+  if ($nbfRecTimerDot) { $nbfRecTimerDot.style.background="#f59e0b"; $nbfRecTimerDot.style.animationPlayState="paused"; }
+}
+function nbfStopTimer() {
+  clearInterval(nbfTimerInterval); nbfTimerInterval = null;
+  if ($nbfRecTimer) $nbfRecTimer.style.opacity = "0";
+  if ($nbfRecTimerVal) $nbfRecTimerVal.textContent = "00:00";
+}
+
+// ── Positionner la reading zone ──
+function nbfPositionRZ() {
+  const focusH = window.innerHeight;
+  const topPx = focusH * nbfRzTopPct;
+  if ($readingZone) {
+    $readingZone.style.top = topPx + "px";
+    $readingZone.style.height = nbfRzHeight + "px";
+    $readingZone.style.transform = "none";
+  }
+  readingZoneTop = Math.round(nbfRzTopPct * 100);
+  if ($focusZoneValue) $focusZoneValue.textContent = nbfRzHeight + "px";
+}
+
+// ── Statut pill ──
+function nbfSetStatus(state, pauseReason) {
+  if (!$nbfStatusDot || !$nbfStatusTxt) return;
+  $nbfStatusDot.className = "nbf-pill-dot";
+  if (state === "S9_FOCUS_RUNNING") {
+    $nbfStatusDot.classList.add("speaking"); $nbfStatusTxt.textContent = "En lecture";
+  } else if (pauseReason === "MANUAL") {
+    $nbfStatusDot.classList.add("paused"); $nbfStatusTxt.textContent = "En pause";
+  } else if (pauseReason === "AUDIO") {
+    $nbfStatusDot.classList.add("paused"); $nbfStatusTxt.textContent = "Silence…";
+  } else {
+    $nbfStatusTxt.textContent = "Prêt";
+  }
+}
+
+// ── Bouton Rec+Pause ──
+function nbfUpdateRecPause() {
+  if (!recorder) return;
+  const state = recorder.getState();
+  if (!$nbfRecDot || !$nbfRecPauseIcon || !$nbfRecPauseLbl) return;
+  if (state === "RECORDING") {
+    $nbfRecDot.classList.add("nbf-rec-dot-pulse"); $nbfRecDot.classList.remove("nbf-rec-dot-paused");
+    $nbfRecPauseLbl.textContent = "Pause";
+    $nbfRecPauseIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    $nbfRecPauseBtn?.classList.add("nbf-btn-recpause-on"); $nbfRecPauseBtn?.classList.remove("nbf-btn-recpause-paused");
+  } else if (state === "PAUSED") {
+    $nbfRecDot.classList.remove("nbf-rec-dot-pulse"); $nbfRecDot.classList.add("nbf-rec-dot-paused");
+    $nbfRecPauseLbl.textContent = "Reprendre";
+    $nbfRecPauseIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    $nbfRecPauseBtn?.classList.remove("nbf-btn-recpause-on"); $nbfRecPauseBtn?.classList.add("nbf-btn-recpause-paused");
+  } else {
+    $nbfRecDot.classList.remove("nbf-rec-dot-pulse","nbf-rec-dot-paused");
+    $nbfRecPauseLbl.textContent = "Rec + lancer";
+    $nbfRecPauseIcon.innerHTML = '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="rgba(239,68,68,0.85)" stroke="none"/>';
+    $nbfRecPauseBtn?.classList.remove("nbf-btn-recpause-on","nbf-btn-recpause-paused");
+  }
+}
+
+// ── Bouton Prompt ──
+function nbfUpdatePrompt(promptState) {
+  if (!$nbfPromptIcon || !$nbfPromptLbl || !$focusBtnPause) return;
+  const isPaused = promptState === "S10_PAUSED_MANUAL";
+  const isRunning = promptState === "S9_FOCUS_RUNNING" || promptState === "S11_PAUSED_AUDIO";
+  if (isPaused || promptState === "S7_PRE_FOCUS") {
+    $nbfPromptIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    $nbfPromptLbl.textContent = "Prompt";
+    $focusBtnPause.classList.remove("nbf-btn-prompt-on");
+  } else if (isRunning) {
+    $nbfPromptIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+    $nbfPromptLbl.textContent = "Stopper";
+    $focusBtnPause.classList.add("nbf-btn-prompt-on");
+  }
+}
+
   // local UI cache (UI-only)
           let loadedText = "";
   let loadedFilename = "";
@@ -261,32 +373,137 @@ handleOrientation();
       </div>
 
       <div class="nbp-focus" aria-hidden="true">
-        <div class="nbp-focus-top">
-  <div class="nbp-focus-actions">
-    <button class="nbp-btn nbp-btn-ghost" type="button" data-action="focus-advanced">⚙</button>
-    <button class="nbp-btn nbp-btn-ghost" type="button" data-action="focus-home">🏠</button>
-  </div>
-</div>
 
-<div class="nbp-focus-text" role="region" aria-label="Texte en focus">
-<div class="nbp-rule-of-thirds"></div>
-  <div class="nbp-reading-zone"></div><div class="nbp-focus-inner"></div>
-</div>
-<div class="nbp-focus-bottom">
-  <div class="nbp-focus-rec-row"><button class="nbp-btn nbp-btn-primary nbp-btn-rec" type="button" data-action="focus-reset">REC</button></div>
-  <div class="nbp-focus-rec-status" aria-live="polite"></div>
-  <div class="nbp-focus-main-row">
-    <button class="nbp-btn nbp-btn-ghost" type="button" data-action="focus-pause">⏸ PROMPT</button>
-    <button class="nbp-btn nbp-btn-danger" type="button" data-action="focus-stop">STOP</button>
-  </div>
-  <div class="nbp-focus-sliders-row">
-    <label class="nbp-mini-slider">↔<input class="nbp-text-width-range" type="range" min="50" max="100" step="5" value="75"></label>
-  </div>
-</div>
-<label class="nbp-zone-slider-rail">
-  <input class="nbp-reading-zone-range" type="range" min="20" max="70" step="1" value="38" orient="vertical">
-</label>
-<div class="nbp-focus-hint">Glisse pour ajuster (manual drag)</div>
+        <!-- TOPBAR FOCUS -->
+        <div class="nbf-topbar">
+          <div class="nbf-pill">
+            <span class="nbf-pill-dot" id="nbf-status-dot"></span>
+            <span class="nbf-pill-txt" id="nbf-status-txt">Prêt</span>
+          </div>
+          <div class="nbf-rec-timer" id="nbf-rec-timer">
+            <span class="nbf-rec-timer-dot" id="nbf-rec-timer-dot"></span>
+            <span class="nbf-rec-timer-val" id="nbf-rec-timer-val">00:00</span>
+          </div>
+          <div class="nbf-topbar-right">
+            <button class="nbf-ico" type="button" data-action="focus-home" title="Écran noir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+            </button>
+            <button class="nbf-ico" type="button" data-action="focus-advanced" title="Paramètres avancés">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ZONE TEXTE -->
+        <div class="nbp-focus-text" role="region" aria-label="Texte en focus">
+          <div class="nbp-reading-zone"></div>
+          <div class="nbp-focus-inner"></div>
+        </div>
+
+        <!-- SLIDER VERTICAL HAUTEUR (droite) -->
+        <div class="nbf-vslider-wrap">
+          <span class="nbf-vslider-lbl">hauteur</span>
+          <div class="nbf-vslider-track" id="nbf-vslider-track">
+            <div class="nbf-vslider-thumb" id="nbf-vslider-thumb"></div>
+          </div>
+          <span class="nbf-vslider-val" id="nbf-vslider-val">72px</span>
+        </div>
+
+        <!-- BOTTOMBAR -->
+        <div class="nbf-bottombar">
+
+          <!-- Slider largeur texte -->
+          <div class="nbf-hslider-wrap">
+            <span class="nbf-hslider-lbl">largeur</span>
+            <input class="nbp-text-width-range nbf-hrange" type="range" min="40" max="100" step="1" value="75">
+            <span class="nbf-hslider-val" id="nbf-hslider-val">75%</span>
+          </div>
+
+          <!-- Indicateur micro -->
+          <div class="nbf-mic-row">
+            <svg class="nbf-mic-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+            <canvas class="nbf-mic-canvas" id="nbf-mic-canvas" width="300" height="28"></canvas>
+            <span class="nbf-mic-state" id="nbf-mic-state">—</span>
+          </div>
+
+          <!-- +/- Vitesse et Seuil micro -->
+          <div class="nbf-pm-row">
+            <div class="nbf-pm-block">
+              <div class="nbf-pm-label">Vitesse</div>
+              <div class="nbf-pm-ctrl">
+                <button class="nbf-pm-btn" type="button" data-action="speed-minus">−</button>
+                <span class="nbf-pm-val" id="nbf-speed-val">28</span>
+                <button class="nbf-pm-btn" type="button" data-action="speed-plus">+</button>
+              </div>
+            </div>
+            <div class="nbf-pm-block">
+              <div class="nbf-pm-label">Seuil micro</div>
+              <div class="nbf-pm-ctrl">
+                <button class="nbf-pm-btn" type="button" data-action="rms-minus">−</button>
+                <span class="nbf-pm-val" id="nbf-rms-val">0.006</span>
+                <button class="nbf-pm-btn" type="button" data-action="rms-plus">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boutons principaux -->
+          <div class="nbf-btn-row">
+            <button class="nbf-btn-prompt" type="button" data-action="focus-pause">
+              <svg id="nbf-prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span id="nbf-prompt-lbl">Prompt</span>
+            </button>
+            <button class="nbf-btn-recpause" type="button" data-action="focus-reset">
+              <span class="nbf-rec-dot" id="nbf-rec-dot"></span>
+              <svg id="nbf-recpause-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="rgba(239,68,68,0.85)" stroke="none"/></svg>
+              <span id="nbf-recpause-lbl">Rec + lancer</span>
+            </button>
+            <button class="nbf-btn-stop" type="button" data-action="focus-stop" title="Stop — sauvegarde">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- PANNEAU AVANCÉ (overlay dans focus) -->
+        <div class="nbf-adv-overlay" id="nbf-adv-overlay">
+          <div class="nbf-adv-header">
+            <span class="nbf-adv-title">Paramètres avancés</span>
+            <button class="nbf-adv-close" type="button" data-action="focus-adv-close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="nbf-adv-body">
+            <div class="nbf-adv-section">Texte</div>
+            <div class="nbf-adv-row">
+              <div><div class="nbf-adv-lbl">Taille de police</div><div class="nbf-adv-sub">px</div></div>
+              <div class="nbf-adv-ctrl">
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_FONT_SIZE" data-dir="-1">−</button>
+                <span class="nbf-adv-pval" id="nbf-adv-font-val">24px</span>
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_FONT_SIZE" data-dir="1">+</button>
+              </div>
+            </div>
+            <div class="nbf-adv-row">
+              <div><div class="nbf-adv-lbl">Poids de police</div><div class="nbf-adv-sub">font-weight</div></div>
+              <div class="nbf-adv-ctrl">
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_FONT_WEIGHT" data-dir="-1">−</button>
+                <span class="nbf-adv-pval" id="nbf-adv-weight-val">600</span>
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_FONT_WEIGHT" data-dir="1">+</button>
+              </div>
+            </div>
+            <div class="nbf-adv-section">Audio</div>
+            <div class="nbf-adv-row">
+              <div><div class="nbf-adv-lbl">Délai silence</div><div class="nbf-adv-sub">ms avant pause auto</div></div>
+              <div class="nbf-adv-ctrl">
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_SILENCE_DELAY" data-dir="-1">−</button>
+                <span class="nbf-adv-pval" id="nbf-adv-sil-val">650ms</span>
+                <button class="nbf-adv-pm" type="button" data-k="EV_SET_SILENCE_DELAY" data-dir="1">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nbp-focus-rec-status" aria-live="polite" style="display:none"></div>
+        <div class="nbp-focus-hint" style="display:none"></div>
       </div>
 	  <div class="nbp-export-modal" aria-hidden="true">
   <div class="nbp-export-card">
@@ -328,25 +545,141 @@ $btnPause = null;
 $btnResume = null;
 $btnStop = null;
 
-    $focusOverlay = $app.querySelector(".nbp-focus");
+    $focusOverlay  = $app.querySelector(".nbp-focus");
 $focusTextWrap = $app.querySelector(".nbp-focus-text");
-$readingZone = $app.querySelector(".nbp-reading-zone");
+$readingZone   = $app.querySelector(".nbp-reading-zone");
 $focusTextInner = $app.querySelector(".nbp-focus-inner");
 $focusWidthRange = $app.querySelector(".nbp-text-width-range");
-$focusWidthValue = $app.querySelector(".nbp-text-width-value");
-$focusZoneRange = $app.querySelector(".nbp-reading-zone-range");
-$focusZoneValue = $app.querySelector(".nbp-reading-zone-value");
-$focusBtnPause = $app.querySelector('[data-action="focus-pause"]');
-$focusBtnStop = $app.querySelector('[data-action="focus-stop"]');
-$focusHint = $app.querySelector(".nbp-focus-hint");
-$focusRecStatus = $app.querySelector(".nbp-focus-rec-status");
-$exportModal = $app.querySelector(".nbp-export-modal");
-$exportBtnWebm = $app.querySelector('[data-action="export-webm"]');
-$exportBtnMp4 = $app.querySelector('[data-action="export-mp4"]');
+$focusWidthValue = $app.querySelector("#nbf-hslider-val");
+$focusZoneRange  = null;
+$focusZoneValue  = $app.querySelector("#nbf-vslider-val");
+$focusBtnPause   = $app.querySelector('[data-action="focus-pause"]');
+$focusBtnStop    = $app.querySelector('[data-action="focus-stop"]');
+$focusHint       = $app.querySelector(".nbp-focus-hint");
+$focusRecStatus  = $app.querySelector(".nbp-focus-rec-status");
+$exportModal     = $app.querySelector(".nbp-export-modal");
+$exportBtnWebm   = $app.querySelector('[data-action="export-webm"]');
+$exportBtnMp4    = $app.querySelector('[data-action="export-mp4"]');
 $exportBtnRetake = $app.querySelector('[data-action="export-retake"]');
-$exportBtnClose = $app.querySelector('[data-action="export-close"]');
-$focusWidthRange?.addEventListener("input", (e) => { textWidthPercent = Number(e.target.value) || 75; if ($focusWidthValue) $focusWidthValue.textContent = `${textWidthPercent}%`; if ($focusTextInner) { $focusTextInner.style.maxWidth = `${textWidthPercent}%`; $focusTextInner.style.marginLeft = "auto"; $focusTextInner.style.marginRight = "auto"; } });
-$focusZoneRange?.addEventListener("input", (e) => { readingZoneTop = Number(e.target.value) || 38; if ($focusZoneValue) $focusZoneValue.textContent = `${readingZoneTop}%`; if ($readingZone) $readingZone.style.top = `${readingZoneTop}%`; });
+$exportBtnClose  = $app.querySelector('[data-action="export-close"]');
+
+// Assignation refs DOM nouvelles UI (les variables sont déclarées au niveau createUIShell)
+$nbfStatusDot    = $app.querySelector("#nbf-status-dot");
+$nbfStatusTxt    = $app.querySelector("#nbf-status-txt");
+$nbfRecTimer     = $app.querySelector("#nbf-rec-timer");
+$nbfRecTimerDot  = $app.querySelector("#nbf-rec-timer-dot");
+$nbfRecTimerVal  = $app.querySelector("#nbf-rec-timer-val");
+$nbfMicState     = $app.querySelector("#nbf-mic-state");
+$nbfMicCanvas  = $app.querySelector("#nbf-mic-canvas");
+nbfMicCtx      = $nbfMicCanvas?.getContext("2d");
+$nbfSpeedVal     = $app.querySelector("#nbf-speed-val");
+$nbfRmsVal       = $app.querySelector("#nbf-rms-val");
+$nbfPromptIcon   = $app.querySelector("#nbf-prompt-icon");
+$nbfPromptLbl    = $app.querySelector("#nbf-prompt-lbl");
+$nbfRecPauseIcon = $app.querySelector("#nbf-recpause-icon");
+$nbfRecPauseLbl  = $app.querySelector("#nbf-recpause-lbl");
+$nbfRecDot       = $app.querySelector("#nbf-rec-dot");
+$nbfRecPauseBtn  = $app.querySelector('[data-action="focus-reset"]');
+$nbfAdvOverlay   = $app.querySelector("#nbf-adv-overlay");
+$nbfAdvFontVal   = $app.querySelector("#nbf-adv-font-val");
+$nbfAdvWeightVal = $app.querySelector("#nbf-adv-weight-val");
+$nbfAdvSilVal    = $app.querySelector("#nbf-adv-sil-val");
+$nbfVThumb       = $app.querySelector("#nbf-vslider-thumb");
+$nbfVTrack       = $app.querySelector("#nbf-vslider-track");
+
+// Slider vertical drag (hauteur reading zone)
+if ($nbfVThumb && $nbfVTrack) {
+  $nbfVThumb.addEventListener("pointerdown", (e) => {
+    nbfVDragging = true;
+    nbfVDragStartY = e.clientY;
+    nbfVDragStartPct = nbfRzTopPct;
+    e.preventDefault();
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!nbfVDragging) return;
+    const dy = e.clientY - nbfVDragStartY;
+    nbfRzTopPct = Math.max(0.05, Math.min(0.78, nbfVDragStartPct + dy / window.innerHeight));
+    const pct = 1 - ((nbfRzTopPct - 0.05) / 0.73);
+    $nbfVThumb.style.bottom = (pct * 100) + "%";
+    nbfPositionRZ();
+  });
+  window.addEventListener("pointerup", () => { nbfVDragging = false; });
+}
+
+// Slider horizontal largeur (centré)
+$focusWidthRange?.addEventListener("input", (e) => {
+  textWidthPercent = Number(e.target.value) || 75;
+  if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
+  if ($focusTextInner) {
+    $focusTextInner.style.width = textWidthPercent + "%";
+    $focusTextInner.style.maxWidth = textWidthPercent + "%";
+    $focusTextInner.style.marginLeft = "auto";
+    $focusTextInner.style.marginRight = "auto";
+  }
+});
+
+// Boutons +/- vitesse
+$app.querySelector('[data-action="speed-minus"]')?.addEventListener("click", () => {
+  nbfSpeed = Math.max(5, nbfSpeed - 5);
+  if ($nbfSpeedVal) $nbfSpeedVal.textContent = nbfSpeed;
+  dispatch({ type: "EV_SET_SCROLL_SPEED", value: nbfSpeed });
+  saveSettings({ scrollSpeed: nbfSpeed, fontSize: nbfFontSize, fontWeight: nbfWeightList[nbfWeightIdx], thresholdRms: nbfRmsList[nbfRmsIdx], silenceDelayMs: nbfSilDelay });
+});
+$app.querySelector('[data-action="speed-plus"]')?.addEventListener("click", () => {
+  nbfSpeed = Math.min(200, nbfSpeed + 5);
+  if ($nbfSpeedVal) $nbfSpeedVal.textContent = nbfSpeed;
+  dispatch({ type: "EV_SET_SCROLL_SPEED", value: nbfSpeed });
+  saveSettings({ scrollSpeed: nbfSpeed, fontSize: nbfFontSize, fontWeight: nbfWeightList[nbfWeightIdx], thresholdRms: nbfRmsList[nbfRmsIdx], silenceDelayMs: nbfSilDelay });
+});
+
+// Boutons +/- seuil micro
+$app.querySelector('[data-action="rms-minus"]')?.addEventListener("click", () => {
+  nbfRmsIdx = Math.max(0, nbfRmsIdx - 1);
+  if ($nbfRmsVal) $nbfRmsVal.textContent = nbfRmsList[nbfRmsIdx].toFixed(3);
+  dispatch({ type: "EV_SET_THRESHOLD_RMS", value: nbfRmsList[nbfRmsIdx] });
+  saveSettings({ scrollSpeed: nbfSpeed, fontSize: nbfFontSize, fontWeight: nbfWeightList[nbfWeightIdx], thresholdRms: nbfRmsList[nbfRmsIdx], silenceDelayMs: nbfSilDelay });
+});
+$app.querySelector('[data-action="rms-plus"]')?.addEventListener("click", () => {
+  nbfRmsIdx = Math.min(nbfRmsList.length - 1, nbfRmsIdx + 1);
+  if ($nbfRmsVal) $nbfRmsVal.textContent = nbfRmsList[nbfRmsIdx].toFixed(3);
+  dispatch({ type: "EV_SET_THRESHOLD_RMS", value: nbfRmsList[nbfRmsIdx] });
+  saveSettings({ scrollSpeed: nbfSpeed, fontSize: nbfFontSize, fontWeight: nbfWeightList[nbfWeightIdx], thresholdRms: nbfRmsList[nbfRmsIdx], silenceDelayMs: nbfSilDelay });
+});
+
+// Paramètres avancés — boutons +/-
+$app.querySelectorAll(".nbf-adv-pm").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.k;
+    const dir = parseInt(btn.dataset.dir) || 1;
+    if (k === "EV_SET_FONT_SIZE") {
+      nbfFontSize = Math.max(12, Math.min(48, nbfFontSize + dir * 2));
+      if ($nbfAdvFontVal) $nbfAdvFontVal.textContent = nbfFontSize + "px";
+      dispatch({ type: k, value: nbfFontSize });
+    } else if (k === "EV_SET_FONT_WEIGHT") {
+      nbfWeightIdx = Math.max(0, Math.min(nbfWeightList.length - 1, nbfWeightIdx + dir));
+      if ($nbfAdvWeightVal) $nbfAdvWeightVal.textContent = nbfWeightList[nbfWeightIdx];
+      dispatch({ type: k, value: nbfWeightList[nbfWeightIdx] });
+    } else if (k === "EV_SET_SILENCE_DELAY") {
+      nbfSilDelay = Math.max(100, Math.min(3000, nbfSilDelay + dir * 50));
+      if ($nbfAdvSilVal) $nbfAdvSilVal.textContent = nbfSilDelay + "ms";
+      dispatch({ type: k, value: nbfSilDelay });
+    }
+    saveSettings({ scrollSpeed: nbfSpeed, fontSize: nbfFontSize, fontWeight: nbfWeightList[nbfWeightIdx], thresholdRms: nbfRmsList[nbfRmsIdx], silenceDelayMs: nbfSilDelay });
+  });
+});
+
+// Fermer paramètres avancés
+$app.querySelector('[data-action="focus-adv-close"]')?.addEventListener("click", () => {
+  if ($nbfAdvOverlay) $nbfAdvOverlay.classList.remove("nbf-adv-open");
+});
+
+// Init position RZ après mount
+requestAnimationFrame(nbfPositionRZ);
+// Connecter les fonctions timer et UI aux hooks REC
+window.__nbfStartTimer = () => { nbfStartTimer(); nbfUpdateRecPause(); };
+window.__nbfPauseTimer = () => { nbfPauseTimer(); nbfUpdateRecPause(); };
+window.__nbfStopTimer  = () => { nbfStopTimer();  nbfUpdateRecPause(); };
+window.__nbfMicState   = $nbfMicState;
     // HOME tweaks V2.0 (UI-only)
     $btnStart.textContent = "Start Selfie";
     const $loadBlock = $app.querySelector(".nbp-block.nbp-load");
@@ -490,15 +823,24 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
       recStartedAt = Date.now();
       recPausedAccumMs = 0;
       recPauseStartedAt = 0;
+      window.__nbfStartTimer?.();
+      // Lance aussi le prompt si pas déjà en cours
+      if (lastPromptState !== "S9_FOCUS_RUNNING") {
+        dispatch({ type: EVENTS.START_FOCUS });
+      }
     } else if (recState === "RECORDING") {
       recorder.pause();
       recPauseStartedAt = Date.now();
+      window.__nbfPauseTimer?.();
+      dispatch({ type: EVENTS.PAUSE_MANUAL });
     } else if (recState === "PAUSED") {
       recorder.resume();
       if (recPauseStartedAt > 0) {
         recPausedAccumMs += Date.now() - recPauseStartedAt;
       }
       recPauseStartedAt = 0;
+      window.__nbfStartTimer?.();
+      dispatch({ type: EVENTS.RESUME });
     }
 
     updateRecButton();
@@ -549,6 +891,7 @@ function closeExportModal() {
       recStartedAt = 0;
       recPausedAccumMs = 0;
       recPauseStartedAt = 0;
+      window.__nbfStopTimer?.();
       updateRecButton();
       return null;
     }
@@ -557,6 +900,7 @@ function closeExportModal() {
     recStartedAt = 0;
     recPausedAccumMs = 0;
     recPauseStartedAt = 0;
+    window.__nbfStopTimer?.();
     updateRecButton();
     return result;
   }
@@ -656,13 +1000,9 @@ $focusBtnStop.addEventListener("click", async () => {
 
 $app.querySelector('[data-action="focus-advanced"]').addEventListener("click", () => {
   promptManualArmed = false;
-  console.log("SEND PAUSE_MANUAL");
   dispatch({ type: EVENTS.PAUSE_MANUAL });
-  const open = !$focusOverlay.classList.toggle("has-adv");
-  const $t = $focusOverlay.querySelector(".nbp-adv-toggle");
-  const $b = $focusOverlay.querySelector(".nbp-adv-body");
-  $t?.setAttribute("aria-expanded", open ? "false" : "true");
-  if ($b) $b.hidden = open;
+  const advEl = $app.querySelector("#nbf-adv-overlay");
+  if (advEl) advEl.classList.toggle("nbf-adv-open");
 });
 $app.querySelector('[data-action="focus-home"]')?.addEventListener("click", async () => {
   if (isStopBusy) return;
@@ -897,19 +1237,56 @@ saveTextDraft({
     // Focus overlay visibility
     setFocusVisible(isFocus);
 
-        // Apply offsetY only (no math)
+    // Apply offsetY only (no math)
     // Convention: offsetY positive => content moves up (typical scroll)
     applyOffsetY(renderState.offsetY || 0);
-if ($readingZone) $readingZone.style.top = `${readingZoneTop}%`;
-if ($focusZoneValue) $focusZoneValue.textContent = `${readingZoneTop}%`;
-if ($focusTextInner) { $focusTextInner.style.maxWidth = `${textWidthPercent}%`; $focusTextInner.style.marginLeft = "auto"; $focusTextInner.style.marginRight = "auto"; }
-if ($focusWidthValue) $focusWidthValue.textContent = `${textWidthPercent}%`;
+    nbfPositionRZ();
+    if ($focusTextInner) {
+      $focusTextInner.style.width = textWidthPercent + "%";
+      $focusTextInner.style.maxWidth = textWidthPercent + "%";
+      $focusTextInner.style.marginLeft = "auto";
+      $focusTextInner.style.marginRight = "auto";
+      $focusTextInner.style.left = "0";
+      $focusTextInner.style.right = "0";
+    }
+    if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
 
         // Live typography (UI only): override CSS clamp via inline styles
     if (typeof renderState.fontSize === "number") $focusTextInner.style.fontSize = `${renderState.fontSize}px`;
     if (typeof renderState.fontWeight === "number") $focusTextInner.style.fontWeight = `${renderState.fontWeight}`;
+    if (nbfMicCtx && $nbfMicCanvas) {
+      const lvl = typeof renderState.audioLevel === "number" ? renderState.audioLevel : 0;
+      nbfMicHistory.push(lvl);
+      nbfMicHistory.shift();
+      const w = $nbfMicCanvas.offsetWidth || 300;
+      const h = 28;
+      $nbfMicCanvas.width = w;
+      nbfMicCtx.clearRect(0, 0, w, h);
+      const segW = w / nbfMicHistory.length;
+      for (let i = 0; i < nbfMicHistory.length; i++) {
+        const v = nbfMicHistory[i];
+        const barH = Math.max(2, v * h * 2.2);
+        const y = (h - barH) / 2;
+        const color = v > 0.75 ? "#f87171" : v > 0.45 ? "#fbbf24" : "#4ade80";
+        nbfMicCtx.fillStyle = color;
+        nbfMicCtx.globalAlpha = 0.3 + v * 0.7;
+        nbfMicCtx.beginPath();
+        nbfMicCtx.roundRect(i * segW + 1, y, segW - 2, barH, 2);
+        nbfMicCtx.fill();
+      }
+      nbfMicCtx.globalAlpha = 1;
+    }
     if ($micMeterFill) $micMeterFill.style.width = `${Math.max(4, Math.min(100, Math.round(((typeof renderState.audioLevel === "number" ? renderState.audioLevel : 0) * 100))))}%`;
         if ($micStatus) $micStatus.textContent = "Micro détecté";
+    // Nouvelle UI focus
+    nbfSetStatus(renderState.state, renderState.pauseReason);
+    nbfUpdatePrompt(renderState.state);
+    nbfUpdateRecPause();
+    // Mic state label
+    if (window.__nbfMicState) {
+      const lvl = typeof renderState.audioLevel === "number" ? renderState.audioLevel : 0;
+      window.__nbfMicState.textContent = isFocus ? (lvl > 0.15 ? "actif" : "silence") : "—";
+    }
     updateRecButton();
 
     // keep focus text present (if loaded)
@@ -1402,317 +1779,194 @@ function ensureFocusLayer() {
         to   { opacity: 1; }
       }
 
-      .nbp-focus-top{
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
-        display:flex;
-        justify-content:flex-end;
-        pointer-events: none;
-        z-index: 5;
+      /* ============ FOCUS OVERLAY — nouveau design ============ */
+      .nbp-focus{
+        position: fixed;
+        inset: 0;
+        background: #040406;
+        display:none;
+        z-index: 9999;
+        overflow: hidden;
       }
-      .nbp-focus-actions{
-        display:flex;
-        gap: 8px;
-        pointer-events: auto;
+      .nbp-focus.is-on{
+        display:block;
+        animation: nbp-focus-in 0.25s ease both;
       }
-      .nbp-focus-bottom{
-        position:absolute;left:14px;right:14px;bottom:16px;z-index:4;display:grid;gap:10px;
-      }
-      .nbp-focus-rec-row,.nbp-focus-main-row,.nbp-focus-sliders-row{display:flex;justify-content:center;gap:10px;align-items:center}
-      .nbp-btn-rec{
-        min-width: 140px;
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.10em;
-        padding: 14px 22px;
-        background: rgba(220,38,38,0.14);
-        border-color: rgba(220,38,38,0.45);
-        color: #fca5a5;
-        border-radius: 14px;
-        box-shadow: 0 0 18px rgba(220,38,38,0.12);
-        transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .09s ease;
-      }
-      .nbp-btn-rec:hover:not(:disabled){
-        background: rgba(220,38,38,0.22);
-        border-color: rgba(220,38,38,0.65);
-        box-shadow: 0 0 28px rgba(220,38,38,0.25);
-      }
-      .nbp-focus-rec-status{
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        gap:8px;
-        min-height:18px;
-        font-size:11px;
-        font-family: var(--nbp-font-mono);
-        letter-spacing: 0.06em;
-        color:rgba(255,255,255,0.70);
-      }
-      .nbp-rec-dot{
-        width:8px;
-        height:8px;
-        border-radius:999px;
-        background: var(--nbp-rec);
-        box-shadow:0 0 8px var(--nbp-rec-glow);
-        animation: nbp-rec-pulse 1.2s ease infinite;
-      }
-      @keyframes nbp-rec-pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.45; }
-      }
-      .nbp-rec-dot.is-paused{
-        background:rgba(255,255,255,0.35);
-        box-shadow:none;
-        animation: none;
-      }
-      .nbp-mini-slider{display:flex;align-items:center;gap:8px;color:var(--nbp-muted);font-family:var(--nbp-font-mono);font-size:12px}
-      .nbp-mini-slider input{width:110px;accent-color:var(--nbp-accent)}
-
-      /* Vertical zone slider — right edge of focus overlay */
-      .nbp-zone-slider-rail{
-        position: absolute;
-        right: 10px;
-        top: 10%;
-        height: 55%;
-        width: 28px;
-        z-index: 5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: auto;
-      }
-      .nbp-zone-slider-rail input[type="range"]{
-        writing-mode: vertical-lr;
-        direction: rtl;
-        -webkit-appearance: slider-vertical;
-        appearance: slider-vertical;
-        width: 4px;
-        height: 100%;
-        accent-color: var(--nbp-accent);
-        cursor: pointer;
-        opacity: 0.55;
-        transition: opacity .15s ease;
-      }
-      .nbp-zone-slider-rail:hover input[type="range"]{
-        opacity: 1;
+      @keyframes nbp-focus-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
       }
 
-      /* Width slider — centered at bottom of focus sliders row */
-      .nbp-focus-sliders-row{
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        color: var(--nbp-muted);
-        font-family: var(--nbp-font-mono);
-        font-size: 12px;
+      /* --- TOPBAR FOCUS --- */
+      .nbf-topbar{
+        position:absolute;top:0;left:0;right:0;height:52px;z-index:30;
+        display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+        background:linear-gradient(to bottom,rgba(0,0,0,0.65),transparent);
       }
-      .nbp-focus-sliders-row .nbp-mini-slider input{
-        width: 160px;
-      }
-      .nbp-focus-actions .nbp-btn,
-      .nbp-focus-bottom .nbp-btn{
-        background: rgba(10,10,18,0.75);
-        color: rgba(255,255,255,0.80);
-        border: 1px solid rgba(255,255,255,0.12);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-      }
-      .nbp-focus-actions .nbp-btn:hover,
-      .nbp-focus-bottom .nbp-btn:hover{
-        background: rgba(20,20,36,0.85);
-        border-color: rgba(255,255,255,0.20);
-        color: #fff;
-      }
-      /* Override danger in focus */
-      .nbp-focus-bottom .nbp-btn-danger{
-        border-color: var(--nbp-danger-border);
-        color: var(--nbp-danger);
-      }
-      /* Override prompt btn active state */
-      .nbp-focus-main-row .nbp-btn{
-        flex: 1;
-        justify-content: center;
-        text-align: center;
-      }
-      .nbp-focus-bottom .nbp-btn[data-action="focus-pause"]{
-        background: rgba(139,92,246,0.10);
-        border-color: rgba(139,92,246,0.28);
-        color: var(--nbp-accent-bright);
-        font-weight: 700;
-        letter-spacing: 0.08em;
-      }
-      .nbp-focus-bottom .nbp-btn[data-action="focus-pause"]:hover{
-        background: rgba(139,92,246,0.18);
-        border-color: rgba(139,92,246,0.45);
-        box-shadow: 0 0 18px rgba(139,92,246,0.15);
-      }
+      .nbf-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);border-radius:20px;padding:4px 10px;}
+      .nbf-pill-dot{width:6px;height:6px;border-radius:50%;background:#555;transition:background .3s;}
+      .nbf-pill-dot.speaking{background:#4ade80;animation:nbf-blink .9s ease-in-out infinite;}
+      .nbf-pill-dot.paused{background:#f59e0b;animation:none;}
+      @keyframes nbf-blink{0%,100%{opacity:1}50%{opacity:.2}}
+      .nbf-pill-txt{font-size:10px;color:rgba(255,255,255,0.72);font-family:var(--nbp-font-mono);letter-spacing:.04em;}
+      .nbf-rec-timer{display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .25s;font-family:var(--nbp-font-mono);font-size:13px;color:rgba(255,255,255,0.88);font-weight:500;letter-spacing:.08em;}
+      .nbf-rec-timer-dot{width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0;animation:nbf-recdot .9s ease-in-out infinite;animation-play-state:paused;}
+      @keyframes nbf-recdot{0%,100%{opacity:1}50%{opacity:.15}}
+      .nbf-topbar-right{display:flex;gap:8px;}
+      .nbf-ico{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.65);transition:background .15s;}
+      .nbf-ico:hover{background:rgba(255,255,255,0.14);}
+      .nbf-ico svg{width:14px;height:14px;stroke:currentColor;}
+      .nbf-ico.nbf-adv-ico-open{background:rgba(139,92,246,0.22);border-color:rgba(139,92,246,0.42);color:#a78bfa;}
 
-      .nbp-focus.has-adv .nbp-focus-bottom,.nbp-focus.has-adv .nbp-focus-hint{display:none}
-      .nbp-text-width,.nbp-reading-zone-control{display:none}
-
+      /* --- ZONE TEXTE --- */
       .nbp-focus-text{
         position:absolute;
-        inset: 68px 14px 174px 14px;
+        top:52px;left:0;right:52px;bottom:180px;
         overflow:hidden;
-        border-radius: 18px;
-        background: transparent;
-        border: 1px solid rgba(255,255,255,0.06);
-        touch-action: none;
+        display:flex;justify-content:center;
+        touch-action:none;
+        border:none;background:transparent;border-radius:0;
       }
-      .nbp-focus-text::before,
-      .nbp-focus-text::after{
-        content:none;
-      }
+      .nbp-focus-text::before,.nbp-focus-text::after{content:none;}
+
+      /* --- READING ZONE --- */
       .nbp-reading-zone{
         position:absolute;
-        left:8px;
-        right:8px;
-        top:38%;
-        transform:translateY(-50%);
+        left:8px;right:8px;
         height:72px;
-        border:1px solid rgba(139,92,246,0.22);
-        border-radius:14px;
-        background:rgba(5,4,14,0.65);
-        box-shadow:
-          0 0 0 1px rgba(0,0,0,0.15) inset,
-          0 0 20px rgba(139,92,246,0.06);
+        top:38%;
+        transform:none;
+        border:0.5px solid rgba(139,92,246,0.28);
+        background:rgba(5,4,14,0.35);
+        border-radius:0;
+        box-shadow:none;
         pointer-events:none;
         z-index:2;
       }
-      .nbp-focus:not(.has-adv) .nbp-advanced{ display:none; }
-      .nbp-focus .nbp-advanced{
-        position:absolute; left:14px; right:14px; bottom:14px;
-        max-height:80px; overflow:auto; padding: 8px 12px;
-        border-radius: 14px;
-        background: rgba(5,4,14,0.80);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(139,92,246,0.15);
+      .nbp-reading-zone::before,.nbp-reading-zone::after{
+        content:"";position:absolute;left:0;right:0;height:1px;background:rgba(139,92,246,0.45);
       }
-      .nbp-focus.has-adv .nbp-focus-text{ inset: 68px 14px 108px 14px; }
-      .nbp-focus.has-adv .nbp-text-width{ display:none; }
+      .nbp-reading-zone::before{top:-1px;}
+      .nbp-reading-zone::after{bottom:-1px;}
 
-      .nbp-adv-toggle{
-        width:100%; display:flex; align-items:center; justify-content:space-between;
-        background: transparent; border:0; padding: 0 0 8px 0; cursor:pointer;
-        color: var(--nbp-muted);
-        font-family: var(--nbp-font);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-      .nbp-adv-caret{ color: var(--nbp-accent); opacity:0.60; transition: transform 180ms ease; }
-      .nbp-focus.has-adv .nbp-adv-caret{ transform: rotate(180deg); }
-
-      /* compact sliders in focus */
-      .nbp-row{ padding: 4px 0; gap: 8px; grid-template-columns: 58px 1fr; border-bottom: none; }
-      .nbp-row input[type="range"]{ height: 12px; }
-      .nbp-val{ min-width: 44px; padding: 4px 7px; }
-
-      .nbp-rule-of-thirds{
-        position:absolute;
-        inset:0;
-        pointer-events:none;
-        z-index:1;
-      }
-      .nbp-rule-of-thirds::before{
-        content:"";
-        position:absolute;
-        inset:0;
-        background-image:
-          linear-gradient(to right,
-            transparent calc(33.333% - 1px),
-            rgba(255, 215, 0, 0.80) calc(33.333% - 1px),
-            rgba(255, 215, 0, 0.80) calc(33.333% + 1px),
-            transparent calc(33.333% + 1px)),
-          linear-gradient(to right,
-            transparent calc(66.666% - 1px),
-            rgba(255, 215, 0, 0.80) calc(66.666% - 1px),
-            rgba(255, 215, 0, 0.80) calc(66.666% + 1px),
-            transparent calc(66.666% + 1px));
-      }
-      .nbp-rule-of-thirds::after{
-        content:"";
-        position:absolute;
-        inset:0;
-        background-image:
-          linear-gradient(to bottom,
-            transparent calc(33.333% - 1px),
-            rgba(255, 215, 0, 0.80) calc(33.333% - 1px),
-            rgba(255, 215, 0, 0.80) calc(33.333% + 1px),
-            transparent calc(33.333% + 1px)),
-          linear-gradient(to bottom,
-            transparent calc(66.666% - 1px),
-            rgba(255, 215, 0, 0.80) calc(66.666% - 1px),
-            rgba(255, 215, 0, 0.80) calc(66.666% + 1px),
-            transparent calc(66.666% + 1px));
-      }
-
+      /* --- TEXTE INNER --- */
       .nbp-focus-inner{
         position:absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        padding: 24px 20px;
-        white-space: pre-wrap;
-        word-break: break-word;
-        font-family: var(--nbp-font);
-        font-size: clamp(18px, 3.4vw, 30px);
-        font-weight: 500;
-        line-height: 1.55;
-        color: rgba(255,255,255,0.95);
-        text-shadow: 0 2px 12px rgba(0,0,0,0.70);
-        z-index: 4;
-        will-change: transform;
+        top:0;left:0;right:0;
+        width:75%;
+        margin-left:auto;margin-right:auto;
+        padding:16px 0;
+        white-space:pre-wrap;word-break:break-word;
+        font-family:var(--nbp-font);
+        font-size:24px;font-weight:600;line-height:1.6;
+        color:rgba(255,255,255,0.92);
+        text-shadow:0 2px 12px rgba(0,0,0,0.70);
+        z-index:4;will-change:transform;
       }
 
-      .nbp-focus-hint{
-        position:absolute;
-        left: 14px;
-        right: 14px;
-        bottom: 14px;
-        text-align:center;
-        font-size: 11px;
-        font-family: var(--nbp-font-mono);
-        letter-spacing: 0.06em;
-        color: rgba(255,255,255,0.30);
-        transition: opacity .18s ease;
-        user-select:none;
-        pointer-events:none;
+      /* --- SLIDER VERTICAL HAUTEUR --- */
+      .nbf-vslider-wrap{
+        position:absolute;right:0;top:52px;bottom:180px;width:50px;z-index:20;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+      }
+      .nbf-vslider-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);letter-spacing:.06em;writing-mode:vertical-rl;transform:rotate(180deg);}
+      .nbf-vslider-track{flex:1;width:3px;background:rgba(255,255,255,0.1);border-radius:2px;position:relative;cursor:pointer;max-height:200px;}
+      .nbf-vslider-thumb{width:14px;height:14px;border-radius:50%;background:#8b5cf6;position:absolute;left:50%;transform:translate(-50%,50%);bottom:38%;cursor:grab;transition:background .15s;}
+      .nbf-vslider-thumb:active{cursor:grabbing;background:#a78bfa;}
+      .nbf-vslider-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:var(--nbp-font-mono);}
+
+      /* --- BOTTOMBAR FOCUS --- */
+      .nbf-bottombar{
+        position:absolute;bottom:0;left:0;right:0;z-index:25;
+        padding:8px 14px 16px;
+        background:linear-gradient(to top,rgba(0,0,0,0.88) 80%,transparent);
       }
 
-      /* Desktop enhancements */
-      @media (min-width: 860px){
-        .nbp-body{
-          grid-template-columns: 1fr;
-          align-items: start;
-        }
-      }
+      .nbf-hslider-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+      .nbf-hslider-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);flex-shrink:0;}
+      .nbf-hrange{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,0.12);outline:none;cursor:pointer;accent-color:#8b5cf6;}
+      .nbf-hrange::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#8b5cf6;cursor:pointer;}
+      .nbf-hrange::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#8b5cf6;border:none;cursor:pointer;}
+      .nbf-hslider-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:var(--nbp-font-mono);min-width:28px;text-align:right;flex-shrink:0;}
 
-      /* =====================================================
-         Landscape layout for focus mode
-         ===================================================== */
-      .nb-landscape .nbp-focus-bottom{
-        position:absolute;
-        right:14px;
-        bottom:14px;
-        left:auto;
-        top:auto;
-        width:240px;
-        display:flex;
-        flex-direction:column;
-        justify-content:flex-end;
-        align-items:stretch;
-        gap:14px;
-        z-index:6;
+      .nbf-mic-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+      .nbf-mic-ico{width:13px;height:13px;stroke:rgba(255,255,255,0.4);flex-shrink:0;}
+      .nbf-mic-canvas{flex:1;height:28px;border-radius:6px;background:rgba(255,255,255,0.04);display:block;}
+      .nbf-mic-state{font-size:9px;color:rgba(255,255,255,0.3);font-family:var(--nbp-font-mono);min-width:36px;text-align:right;}
+
+      .nbf-pm-row{display:flex;gap:8px;margin-bottom:9px;}
+      .nbf-pm-block{flex:1;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:7px 8px;}
+      .nbf-pm-label{font-size:9px;color:rgba(255,255,255,0.30);font-family:var(--nbp-font-mono);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;}
+      .nbf-pm-ctrl{display:flex;align-items:center;justify-content:space-between;gap:4px;}
+      .nbf-pm-btn{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.75);font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .12s;flex-shrink:0;line-height:1;font-family:var(--nbp-font-mono);}
+      .nbf-pm-btn:hover{background:rgba(255,255,255,0.14);}
+      .nbf-pm-btn:active{background:rgba(139,92,246,0.28);}
+      .nbf-pm-val{font-size:13px;color:rgba(255,255,255,0.85);font-family:var(--nbp-font-mono);text-align:center;flex:1;}
+
+      /* --- BOUTONS PRINCIPAUX --- */
+      .nbf-btn-row{display:flex;gap:8px;align-items:center;}
+
+      .nbf-btn-prompt{
+        width:82px;flex-shrink:0;height:46px;border-radius:13px;
+        border:0.5px solid rgba(139,92,246,0.45);background:rgba(139,92,246,0.15);
+        color:rgba(255,255,255,0.88);font-size:11px;font-family:var(--nbp-font);font-weight:600;
+        cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+        transition:background .15s;line-height:1;
       }
-      .nb-landscape .nbp-focus-text{
-        inset:68px 14px 14px 14px;
+      .nbf-btn-prompt:hover{background:rgba(139,92,246,0.26);}
+      .nbf-btn-prompt.nbf-btn-prompt-on{background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.4);color:rgba(74,222,128,0.9);}
+      .nbf-btn-prompt svg{width:13px;height:13px;}
+
+      .nbf-btn-recpause{
+        flex:1;height:46px;border-radius:13px;
+        border:0.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);
+        color:rgba(255,255,255,0.78);font-size:12px;font-family:var(--nbp-font);font-weight:600;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+        transition:background .15s,border-color .15s;
       }
+      .nbf-btn-recpause:hover{background:rgba(255,255,255,0.11);}
+      .nbf-btn-recpause.nbf-btn-recpause-on{background:rgba(74,222,128,0.15);border-color:rgba(74,222,128,0.65);color:#86efac;box-shadow:0 0 0 1px rgba(74,222,128,0.2);}
+      .nbf-btn-recpause.nbf-btn-recpause-paused{background:rgba(251,191,36,0.18);border-color:rgba(251,191,36,0.65);color:#fde68a;box-shadow:0 0 0 1px rgba(251,191,36,0.2);}
+      .nbf-btn-recpause svg{width:14px;height:14px;}
+      .nbf-rec-dot{width:8px;height:8px;border-radius:50%;background:rgba(239,68,68,0.5);flex-shrink:0;transition:background .2s;}
+      .nbf-rec-dot.nbf-rec-dot-pulse{background:#4ade80;animation:nbf-recdot .8s ease-in-out infinite;}
+      .nbf-rec-dot.nbf-rec-dot-paused{background:#f59e0b;animation:none;}
+
+      .nbf-btn-stop{
+        width:46px;height:46px;border-radius:13px;
+        background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
+        display:flex;align-items:center;justify-content:center;cursor:pointer;
+        transition:background .15s,border-color .15s;flex-shrink:0;color:rgba(255,255,255,0.45);
+      }
+      .nbf-btn-stop:hover{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.32);color:rgba(239,68,68,0.8);}
+      .nbf-btn-stop svg{width:14px;height:14px;}
+
+      /* --- PANNEAU AVANCÉ --- */
+      .nbf-adv-overlay{
+        position:absolute;inset:0;background:rgba(5,4,14,0.97);z-index:45;
+        display:none;flex-direction:column;
+      }
+      .nbf-adv-overlay.nbf-adv-open{display:flex;}
+      .nbf-adv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:0.5px solid rgba(255,255,255,0.08);}
+      .nbf-adv-title{font-size:13px;color:rgba(255,255,255,0.8);font-family:var(--nbp-font);font-weight:600;}
+      .nbf-adv-close{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.55);}
+      .nbf-adv-close svg{width:12px;height:12px;}
+      .nbf-adv-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
+      .nbf-adv-section{font-size:9px;color:rgba(255,255,255,0.22);font-family:var(--nbp-font-mono);letter-spacing:.1em;text-transform:uppercase;margin-top:6px;margin-bottom:2px;padding:0 2px;}
+      .nbf-adv-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.07);border-radius:10px;gap:12px;}
+      .nbf-adv-lbl{font-size:12px;color:rgba(255,255,255,0.75);font-family:var(--nbp-font);}
+      .nbf-adv-sub{font-size:10px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);}
+      .nbf-adv-ctrl{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+      .nbf-adv-pm{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .12s;line-height:1;font-family:var(--nbp-font-mono);}
+      .nbf-adv-pm:hover{background:rgba(139,92,246,0.22);}
+      .nbf-adv-pval{font-size:12px;color:rgba(255,255,255,0.8);font-family:var(--nbp-font-mono);min-width:52px;text-align:center;}
+
+      /* Masquer les anciens éléments focus inutilisés */
+      .nbp-focus-top,.nbp-focus-bottom,.nbp-zone-slider-rail,
+      .nbp-focus-hint,.nbp-focus-rec-status,.nbp-advanced,
+      .nbp-rule-of-thirds,.nbp-text-width,.nbp-reading-zone-control{display:none!important;}
+
+      /* Export modal reste inchangé */
 	        .nbp-export-modal{
         position: fixed;
         inset: 0;
@@ -1770,9 +2024,6 @@ function ensureFocusLayer() {
    render
  };
 }
-
-/* Convenience default export (optional style) */
-export const ui = createUIShell();
 
 /* ============================================================
    UI livré — shell indépendant.
