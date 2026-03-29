@@ -152,22 +152,6 @@ function nbfStopTimer() {
   if ($nbfRecTimerVal) $nbfRecTimerVal.textContent = "00:00";
 }
 
-// ── Appliquer largeur texte + reading zone ──
-function nbfApplyWidth() {
-  if ($focusTextInner) {
-    $focusTextInner.style.width = textWidthPercent + "%";
-    $focusTextInner.style.maxWidth = textWidthPercent + "%";
-    $focusTextInner.style.marginLeft = "auto";
-    $focusTextInner.style.marginRight = "auto";
-  }
-  if ($readingZone) {
-    const margin = (100 - textWidthPercent) / 2;
-    $readingZone.style.left = margin + "%";
-    $readingZone.style.right = margin + "%";
-  }
-  if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
-}
-
 // ── Positionner la reading zone ──
 function nbfPositionRZ() {
   const focusH = window.innerHeight;
@@ -633,6 +617,21 @@ if ($nbfVThumb && $nbfVTrack) {
 }
 
 // Slider horizontal largeur (centré)
+function nbfApplyWidth() {
+  if ($focusTextInner) {
+    $focusTextInner.style.width = textWidthPercent + "%";
+    $focusTextInner.style.maxWidth = textWidthPercent + "%";
+    $focusTextInner.style.marginLeft = "auto";
+    $focusTextInner.style.marginRight = "auto";
+  }
+  if ($readingZone) {
+    const margin = (100 - textWidthPercent) / 2;
+    $readingZone.style.left = margin + "%";
+    $readingZone.style.right = margin + "%";
+  }
+  if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
+}
+
 $focusWidthRange?.addEventListener("input", (e) => {
   textWidthPercent = Number(e.target.value) || 75;
   nbfApplyWidth();

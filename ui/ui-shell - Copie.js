@@ -152,22 +152,6 @@ function nbfStopTimer() {
   if ($nbfRecTimerVal) $nbfRecTimerVal.textContent = "00:00";
 }
 
-// ── Appliquer largeur texte + reading zone ──
-function nbfApplyWidth() {
-  if ($focusTextInner) {
-    $focusTextInner.style.width = textWidthPercent + "%";
-    $focusTextInner.style.maxWidth = textWidthPercent + "%";
-    $focusTextInner.style.marginLeft = "auto";
-    $focusTextInner.style.marginRight = "auto";
-  }
-  if ($readingZone) {
-    const margin = (100 - textWidthPercent) / 2;
-    $readingZone.style.left = margin + "%";
-    $readingZone.style.right = margin + "%";
-  }
-  if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
-}
-
 // ── Positionner la reading zone ──
 function nbfPositionRZ() {
   const focusH = window.innerHeight;
@@ -605,37 +589,33 @@ $nbfVTrack       = $app.querySelector("#nbf-vslider-track");
 
 // Slider vertical drag (hauteur reading zone)
 if ($nbfVThumb && $nbfVTrack) {
-  const onVDown = (e) => {
+  $nbfVThumb.addEventListener("pointerdown", (e) => {
     nbfVDragging = true;
     nbfVDragStartY = e.clientY;
     nbfVDragStartPct = nbfRzTopPct;
     e.preventDefault();
-    e.stopPropagation();
-    $nbfVThumb.setPointerCapture(e.pointerId);
-  };
-  const onVMove = (e) => {
+  });
+  window.addEventListener("pointermove", (e) => {
     if (!nbfVDragging) return;
-    e.preventDefault();
-    e.stopPropagation();
     const dy = e.clientY - nbfVDragStartY;
     nbfRzTopPct = Math.max(0.05, Math.min(0.78, nbfVDragStartPct + dy / window.innerHeight));
     const pct = 1 - ((nbfRzTopPct - 0.05) / 0.73);
     $nbfVThumb.style.bottom = (pct * 100) + "%";
     nbfPositionRZ();
-  };
-  const onVUp = () => { nbfVDragging = false; };
-  $nbfVThumb.addEventListener("pointerdown", onVDown);
-  $nbfVThumb.addEventListener("pointermove", onVMove);
-  $nbfVThumb.addEventListener("pointerup", onVUp);
-  $nbfVTrack.addEventListener("pointerdown", onVDown);
-  $nbfVTrack.addEventListener("pointermove", onVMove);
-  $nbfVTrack.addEventListener("pointerup", onVUp);
+  });
+  window.addEventListener("pointerup", () => { nbfVDragging = false; });
 }
 
 // Slider horizontal largeur (centré)
 $focusWidthRange?.addEventListener("input", (e) => {
   textWidthPercent = Number(e.target.value) || 75;
-  nbfApplyWidth();
+  if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
+  if ($focusTextInner) {
+    $focusTextInner.style.width = textWidthPercent + "%";
+    $focusTextInner.style.maxWidth = textWidthPercent + "%";
+    $focusTextInner.style.marginLeft = "auto";
+    $focusTextInner.style.marginRight = "auto";
+  }
 });
 
 // Boutons +/- vitesse
@@ -1262,11 +1242,15 @@ saveTextDraft({
     applyOffsetY(renderState.offsetY || 0);
     nbfPositionRZ();
     if ($focusTextInner) {
-      nbfApplyWidth();
+      $focusTextInner.style.width = textWidthPercent + "%";
+      $focusTextInner.style.maxWidth = textWidthPercent + "%";
+      $focusTextInner.style.marginLeft = "auto";
+      $focusTextInner.style.marginRight = "auto";
       $focusTextInner.style.left = "0";
       $focusTextInner.style.right = "0";
     }
-    
+    if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
+
         // Live typography (UI only): override CSS clamp via inline styles
     if (typeof renderState.fontSize === "number") $focusTextInner.style.fontSize = `${renderState.fontSize}px`;
     if (typeof renderState.fontWeight === "number") $focusTextInner.style.fontWeight = `${renderState.fontWeight}`;
@@ -1848,7 +1832,7 @@ function ensureFocusLayer() {
       /* --- READING ZONE --- */
       .nbp-reading-zone{
         position:absolute;
-        left:12.5%;right:12.5%;
+        left:8px;right:8px;
         height:72px;
         top:38%;
         transform:none;
@@ -1884,12 +1868,10 @@ function ensureFocusLayer() {
       .nbf-vslider-wrap{
         position:absolute;right:0;top:52px;bottom:180px;width:50px;z-index:20;
         display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
-        touch-action:none;overscroll-behavior:none;
       }
       .nbf-vslider-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);letter-spacing:.06em;writing-mode:vertical-rl;transform:rotate(180deg);}
       .nbf-vslider-track{flex:1;width:3px;background:rgba(255,255,255,0.1);border-radius:2px;position:relative;cursor:pointer;max-height:200px;}
-      .nbf-vslider-thumb{width:36px;height:36px;border-radius:50%;background:#8b5cf6;position:absolute;left:50%;transform:translate(-50%,50%);bottom:38%;cursor:grab;transition:background .15s;touch-action:none;}
-      .nbf-vslider-thumb::after{content:"";position:absolute;inset:-10px;border-radius:50%;}
+      .nbf-vslider-thumb{width:14px;height:14px;border-radius:50%;background:#8b5cf6;position:absolute;left:50%;transform:translate(-50%,50%);bottom:38%;cursor:grab;transition:background .15s;}
       .nbf-vslider-thumb:active{cursor:grabbing;background:#a78bfa;}
       .nbf-vslider-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:var(--nbp-font-mono);}
 
@@ -1902,9 +1884,9 @@ function ensureFocusLayer() {
 
       .nbf-hslider-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
       .nbf-hslider-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);flex-shrink:0;}
-      .nbf-hrange{flex:1;-webkit-appearance:none;appearance:none;height:20px;border-radius:10px;background:rgba(255,255,255,0.08);outline:none;cursor:pointer;accent-color:#8b5cf6;touch-action:none;}
-      .nbf-hrange::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#8b5cf6;cursor:pointer;box-shadow:0 0 0 6px rgba(139,92,246,0.15);}
-      .nbf-hrange::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#8b5cf6;border:none;cursor:pointer;box-shadow:0 0 0 6px rgba(139,92,246,0.15);}
+      .nbf-hrange{flex:1;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,0.12);outline:none;cursor:pointer;accent-color:#8b5cf6;}
+      .nbf-hrange::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#8b5cf6;cursor:pointer;}
+      .nbf-hrange::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#8b5cf6;border:none;cursor:pointer;}
       .nbf-hslider-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:var(--nbp-font-mono);min-width:28px;text-align:right;flex-shrink:0;}
 
       .nbf-mic-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
