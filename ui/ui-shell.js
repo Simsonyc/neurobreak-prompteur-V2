@@ -618,8 +618,8 @@ if ($nbfVThumb && $nbfVTrack) {
     e.preventDefault();
     e.stopPropagation();
     const dy = e.clientY - nbfVDragStartY;
-    nbfRzTopPct = Math.max(0.05, Math.min(0.78, nbfVDragStartPct + dy / window.innerHeight));
-    const pct = 1 - ((nbfRzTopPct - 0.05) / 0.73);
+    nbfRzTopPct = Math.max(0.01, Math.min(0.85, nbfVDragStartPct + dy / window.innerHeight));
+const pct = 1 - ((nbfRzTopPct - 0.01) / 0.84);
     $nbfVThumb.style.bottom = (pct * 100) + "%";
     nbfPositionRZ();
   };
