@@ -438,7 +438,7 @@ handleOrientation();
           <!-- Indicateur micro -->
           <div class="nbf-mic-row">
             <svg class="nbf-mic-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-            <canvas class="nbf-mic-canvas" id="nbf-mic-canvas" width="300" height="28"></canvas>
+            <canvas class="nbf-mic-canvas" id="nbf-mic-canvas" width="160" height="24"></canvas>
             <span class="nbf-mic-state" id="nbf-mic-state">—</span>
           </div>
 
@@ -1272,24 +1272,25 @@ saveTextDraft({
     if (typeof renderState.fontWeight === "number") $focusTextInner.style.fontWeight = `${renderState.fontWeight}`;
     if (nbfMicCtx && $nbfMicCanvas) {
       const lvl = typeof renderState.audioLevel === "number" ? renderState.audioLevel : 0;
-      nbfMicHistory.push(lvl);
-      nbfMicHistory.shift();
-      const w = $nbfMicCanvas.offsetWidth || 300;
-      const h = 28;
+      const w = 160;
+      const h = 24;
       $nbfMicCanvas.width = w;
+      $nbfMicCanvas.height = h;
       nbfMicCtx.clearRect(0, 0, w, h);
-      const segW = w / nbfMicHistory.length;
-      for (let i = 0; i < nbfMicHistory.length; i++) {
-        const v = nbfMicHistory[i];
-        const barH = Math.max(2, v * h * 2.2);
-        const y = (h - barH) / 2;
-        const color = v > 0.75 ? "#f87171" : v > 0.45 ? "#fbbf24" : "#4ade80";
-        nbfMicCtx.fillStyle = color;
-        nbfMicCtx.globalAlpha = 0.3 + v * 0.7;
-        nbfMicCtx.beginPath();
-        nbfMicCtx.roundRect(i * segW + 1, y, segW - 2, barH, 2);
-        nbfMicCtx.fill();
+      const micColor = lvl > 0.75 ? "#f87171" : lvl > 0.45 ? "#fbbf24" : "#4ade80";
+      const amp = lvl * (h / 2 - 2);
+      const now = performance.now() / 1000;
+      nbfMicCtx.beginPath();
+      nbfMicCtx.strokeStyle = micColor;
+      nbfMicCtx.lineWidth = 1.5;
+      nbfMicCtx.globalAlpha = lvl < 0.05 ? 0.25 : 0.85;
+      for (let x = 0; x <= w; x++) {
+        const freq = 0.08 + lvl * 0.12;
+        const y = h / 2 + Math.sin(x * freq + now * 4) * amp * Math.sin(x * 0.035 + 0.5);
+        if (x === 0) nbfMicCtx.moveTo(x, y);
+        else nbfMicCtx.lineTo(x, y);
       }
+      nbfMicCtx.stroke();
       nbfMicCtx.globalAlpha = 1;
     }
     if ($micMeterFill) $micMeterFill.style.width = `${Math.max(4, Math.min(100, Math.round(((typeof renderState.audioLevel === "number" ? renderState.audioLevel : 0) * 100))))}%`;
@@ -1909,7 +1910,7 @@ function ensureFocusLayer() {
 
       .nbf-mic-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
       .nbf-mic-ico{width:13px;height:13px;stroke:rgba(255,255,255,0.4);flex-shrink:0;}
-      .nbf-mic-canvas{flex:1;height:28px;border-radius:6px;background:rgba(255,255,255,0.04);display:block;}
+      .nbf-mic-canvas{width:160px;flex:none;height:24px;border-radius:4px;background:transparent;display:block;}
       .nbf-mic-state{font-size:9px;color:rgba(255,255,255,0.3);font-family:var(--nbp-font-mono);min-width:36px;text-align:right;}
 
       .nbf-pm-row{display:flex;gap:8px;margin-bottom:9px;}
