@@ -778,9 +778,8 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
     throw new Error("Recorder: aucune piste vidéo caméra disponible.");
   }
 
-  // Audio optional: record without audio if mic stream not ready
   if (!audioTracks.length) {
-    console.warn("Recorder: aucune piste audio — enregistrement vidéo seul.");
+    throw new Error("Recorder: aucune piste audio micro disponible.");
   }
 
   return new MediaStream([
@@ -830,32 +829,16 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
   }
 
     async function handleRecClick() {
-    if (!camera) {
-      console.error("REC: camera module non initialisé.");
-      return;
-    }
+    if (!camera) return;
 
-    // Start camera if not already streaming
-    const camState = camera.getState?.();
-    if (!camState?.hasStream) {
-      try {
-        await camera.start();
-      } catch (err) {
-        console.error("REC: échec démarrage caméra:", err);
-        return;
-      }
+    if (!camera.getState?.().hasStream) {
+      await camera.start();
     }
 
     const recState = recorder.getState();
 
     if (recState === "IDLE") {
-      let mixedStream;
-      try {
-        mixedStream = buildRecordingStream();
-      } catch (err) {
-        console.error("REC: impossible de construire le stream:", err);
-        return;
-      }
+      const mixedStream = buildRecordingStream();
       recorder.start(mixedStream);
       recStartedAt = Date.now();
       recPausedAccumMs = 0;
