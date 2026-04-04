@@ -120,7 +120,7 @@ let nbfRzHeight = 72;
 let nbfTimerInterval = null;
 let nbfVDragging = false, nbfVDragStartY = 0, nbfVDragStartPct = 0;
 let nbfTextAlign = "center"; // "left" | "center" | "right"
-let nbfGridMode = "off"; // "off" | "grid" | "face"
+let nbfGridVisible = false;
 let $nbfGrid = null;
 let $nbfAlignBtns = null;
 
@@ -175,13 +175,12 @@ function nbfApplyWidth() {
 function nbfApplyAlign() {
   if (!$focusTextInner) return;
   $focusTextInner.style.textAlign = nbfTextAlign;
-  const GAP = "16px"; // marge confort gauche/droite
   if (nbfTextAlign === "left") {
-    $focusTextInner.style.marginLeft = GAP;
+    $focusTextInner.style.marginLeft = "0";
     $focusTextInner.style.marginRight = "auto";
   } else if (nbfTextAlign === "right") {
     $focusTextInner.style.marginLeft = "auto";
-    $focusTextInner.style.marginRight = GAP;
+    $focusTextInner.style.marginRight = "0";
   } else {
     $focusTextInner.style.marginLeft = "auto";
     $focusTextInner.style.marginRight = "auto";
@@ -193,23 +192,12 @@ function nbfApplyAlign() {
   }
 }
 
-// ── Cycle grille : off → grid → face → off ──
+// ── Toggle grille des tiers ──
 function nbfToggleGrid() {
-  const modes = ["off", "grid", "face"];
-  nbfGridMode = modes[(modes.indexOf(nbfGridMode) + 1) % modes.length];
-  if ($nbfGrid) {
-    $nbfGrid.className = "nbf-grid";
-    if (nbfGridMode !== "off") $nbfGrid.classList.add("nbf-grid-" + nbfGridMode);
-  }
+  nbfGridVisible = !nbfGridVisible;
+  if ($nbfGrid) $nbfGrid.classList.toggle("nbf-grid-on", nbfGridVisible);
   const $btn = $app?.querySelector('[data-action="focus-grid"]');
-  if ($btn) {
-    $btn.classList.toggle("nbf-ico-on", nbfGridMode !== "off");
-    $btn.title = nbfGridMode === "off" ? "Grille des tiers" : nbfGridMode === "grid" ? "Ellipse visage" : "Désactiver";
-    // Swap icône selon mode
-    const svgGrid = '<line x1="8" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="16" y2="21"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="21" y2="16"/>';
-    const svgFace = '<ellipse cx="12" cy="10" rx="6" ry="7"/><path d="M6 17c0 3 2.5 5 6 5s6-2 6-5"/>';
-    $btn.querySelector("svg").innerHTML = nbfGridMode === "face" ? svgFace : svgGrid;
-  }
+  if ($btn) $btn.classList.toggle("nbf-ico-on", nbfGridVisible);
 }
 
 // ── Positionner la reading zone ──
@@ -474,15 +462,12 @@ handleOrientation();
           <div class="nbp-focus-inner"></div>
         </div>
 
-        <!-- GRILLE DES TIERS / ELLIPSE VISAGE -->
+        <!-- GRILLE DES TIERS -->
         <div class="nbf-grid" id="nbf-grid" aria-hidden="true">
           <div class="nbf-grid-line nbf-grid-v1"></div>
           <div class="nbf-grid-line nbf-grid-v2"></div>
           <div class="nbf-grid-line nbf-grid-h1"></div>
           <div class="nbf-grid-line nbf-grid-h2"></div>
-          <svg class="nbf-face-ellipse" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="50" cy="38" rx="22" ry="30" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.4"/>
-          </svg>
         </div>
 
         <!-- SLIDER VERTICAL HAUTEUR (droite) -->
@@ -1944,20 +1929,14 @@ function ensureFocusLayer() {
       .nbf-align-btn.nbf-align-active{background:rgba(255,255,255,0.16);color:#fff;}
       .nbf-align-btn svg{width:13px;height:13px;}
 
-      /* --- GRILLE DES TIERS / ELLIPSE VISAGE --- */
+      /* --- GRILLE DES TIERS --- */
       .nbf-grid{position:absolute;inset:0;z-index:6;pointer-events:none;display:none;}
-      .nbf-grid.nbf-grid-grid{display:block;}
-      .nbf-grid.nbf-grid-face{display:block;}
-      /* lignes grille visibles seulement en mode grid */
-      .nbf-grid-line{position:absolute;background:rgba(255,255,255,0.18);display:none;}
-      .nbf-grid.nbf-grid-grid .nbf-grid-line{display:block;}
+      .nbf-grid.nbf-grid-on{display:block;}
+      .nbf-grid-line{position:absolute;background:rgba(255,255,255,0.18);}
       .nbf-grid-v1{top:0;bottom:0;left:33.333%;width:0.5px;}
       .nbf-grid-v2{top:0;bottom:0;left:66.666%;width:0.5px;}
       .nbf-grid-h1{left:0;right:0;top:33.333%;height:0.5px;}
       .nbf-grid-h2{left:0;right:0;top:66.666%;height:0.5px;}
-      /* ellipse visage visible seulement en mode face */
-      .nbf-face-ellipse{position:absolute;inset:0;width:100%;height:100%;display:none;}
-      .nbf-grid.nbf-grid-face .nbf-face-ellipse{display:block;}
 
       /* --- ZONE TEXTE --- */
       .nbp-focus-text{

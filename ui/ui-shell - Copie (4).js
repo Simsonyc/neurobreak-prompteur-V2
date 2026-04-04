@@ -119,10 +119,6 @@ let nbfRzTopPct = 0.38;
 let nbfRzHeight = 72;
 let nbfTimerInterval = null;
 let nbfVDragging = false, nbfVDragStartY = 0, nbfVDragStartPct = 0;
-let nbfTextAlign = "center"; // "left" | "center" | "right"
-let nbfGridMode = "off"; // "off" | "grid" | "face"
-let $nbfGrid = null;
-let $nbfAlignBtns = null;
 
 // Refs DOM nouvelles (initialisées dans mount)
 let $nbfStatusDot, $nbfStatusTxt, $nbfRecTimer, $nbfRecTimerDot, $nbfRecTimerVal;
@@ -161,7 +157,8 @@ function nbfApplyWidth() {
   if ($focusTextInner) {
     $focusTextInner.style.width = textWidthPercent + "%";
     $focusTextInner.style.maxWidth = textWidthPercent + "%";
-    nbfApplyAlign();
+    $focusTextInner.style.marginLeft = "auto";
+    $focusTextInner.style.marginRight = "auto";
   }
   if ($readingZone) {
     const margin = (100 - textWidthPercent) / 2;
@@ -169,47 +166,6 @@ function nbfApplyWidth() {
     $readingZone.style.right = margin + "%";
   }
   if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
-}
-
-// ── Appliquer alignement texte ──
-function nbfApplyAlign() {
-  if (!$focusTextInner) return;
-  $focusTextInner.style.textAlign = nbfTextAlign;
-  const GAP = "16px"; // marge confort gauche/droite
-  if (nbfTextAlign === "left") {
-    $focusTextInner.style.marginLeft = GAP;
-    $focusTextInner.style.marginRight = "auto";
-  } else if (nbfTextAlign === "right") {
-    $focusTextInner.style.marginLeft = "auto";
-    $focusTextInner.style.marginRight = GAP;
-  } else {
-    $focusTextInner.style.marginLeft = "auto";
-    $focusTextInner.style.marginRight = "auto";
-  }
-  if ($nbfAlignBtns) {
-    $nbfAlignBtns.forEach(btn => {
-      btn.classList.toggle("nbf-align-active", btn.dataset.align === nbfTextAlign);
-    });
-  }
-}
-
-// ── Cycle grille : off → grid → face → off ──
-function nbfToggleGrid() {
-  const modes = ["off", "grid", "face"];
-  nbfGridMode = modes[(modes.indexOf(nbfGridMode) + 1) % modes.length];
-  if ($nbfGrid) {
-    $nbfGrid.className = "nbf-grid";
-    if (nbfGridMode !== "off") $nbfGrid.classList.add("nbf-grid-" + nbfGridMode);
-  }
-  const $btn = $app?.querySelector('[data-action="focus-grid"]');
-  if ($btn) {
-    $btn.classList.toggle("nbf-ico-on", nbfGridMode !== "off");
-    $btn.title = nbfGridMode === "off" ? "Grille des tiers" : nbfGridMode === "grid" ? "Ellipse visage" : "Désactiver";
-    // Swap icône selon mode
-    const svgGrid = '<line x1="8" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="16" y2="21"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="21" y2="16"/>';
-    const svgFace = '<ellipse cx="12" cy="10" rx="6" ry="7"/><path d="M6 17c0 3 2.5 5 6 5s6-2 6-5"/>';
-    $btn.querySelector("svg").innerHTML = nbfGridMode === "face" ? svgFace : svgGrid;
-  }
 }
 
 // ── Positionner la reading zone ──
@@ -445,20 +401,6 @@ handleOrientation();
             <span class="nbf-rec-timer-val" id="nbf-rec-timer-val">00:00</span>
           </div>
           <div class="nbf-topbar-right">
-            <div class="nbf-align-group">
-              <button class="nbf-ico nbf-align-btn" type="button" data-align="left" title="Gauche">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
-              </button>
-              <button class="nbf-ico nbf-align-btn nbf-align-active" type="button" data-align="center" title="Centre">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="5" y1="18" x2="19" y2="18"/></svg>
-              </button>
-              <button class="nbf-ico nbf-align-btn" type="button" data-align="right" title="Droite">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
-              </button>
-            </div>
-            <button class="nbf-ico" type="button" data-action="focus-grid" title="Grille des tiers">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="16" y2="21"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="21" y2="16"/></svg>
-            </button>
             <button class="nbf-ico" type="button" data-action="focus-home" title="Écran noir">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
             </button>
@@ -472,17 +414,6 @@ handleOrientation();
         <div class="nbp-focus-text" role="region" aria-label="Texte en focus">
           <div class="nbp-reading-zone"></div>
           <div class="nbp-focus-inner"></div>
-        </div>
-
-        <!-- GRILLE DES TIERS / ELLIPSE VISAGE -->
-        <div class="nbf-grid" id="nbf-grid" aria-hidden="true">
-          <div class="nbf-grid-line nbf-grid-v1"></div>
-          <div class="nbf-grid-line nbf-grid-v2"></div>
-          <div class="nbf-grid-line nbf-grid-h1"></div>
-          <div class="nbf-grid-line nbf-grid-h2"></div>
-          <svg class="nbf-face-ellipse" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="50" cy="38" rx="22" ry="30" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.4"/>
-          </svg>
         </div>
 
         <!-- SLIDER VERTICAL HAUTEUR (droite) -->
@@ -671,9 +602,6 @@ $nbfAdvWeightVal = $app.querySelector("#nbf-adv-weight-val");
 $nbfAdvSilVal    = $app.querySelector("#nbf-adv-sil-val");
 $nbfVThumb       = $app.querySelector("#nbf-vslider-thumb");
 $nbfVTrack       = $app.querySelector("#nbf-vslider-track");
-$nbfGrid         = $app.querySelector("#nbf-grid");
-$nbfAlignBtns    = $app.querySelectorAll(".nbf-align-btn");
-nbfApplyAlign();
 
 // Slider vertical drag (hauteur reading zone)
 if ($nbfVThumb && $nbfVTrack) {
@@ -763,19 +691,6 @@ $app.querySelectorAll(".nbf-adv-pm").forEach(btn => {
 // Fermer paramètres avancés
 $app.querySelector('[data-action="focus-adv-close"]')?.addEventListener("click", () => {
   if ($nbfAdvOverlay) $nbfAdvOverlay.classList.remove("nbf-adv-open");
-});
-
-// Boutons alignement texte
-$app.querySelectorAll(".nbf-align-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    nbfTextAlign = btn.dataset.align || "center";
-    nbfApplyAlign();
-  });
-});
-
-// Toggle grille des tiers
-$app.querySelector('[data-action="focus-grid"]')?.addEventListener("click", () => {
-  nbfToggleGrid();
 });
 
 // Init position RZ après mount
@@ -1936,28 +1851,6 @@ function ensureFocusLayer() {
       .nbf-ico:hover{background:rgba(255,255,255,0.14);}
       .nbf-ico svg{width:14px;height:14px;stroke:currentColor;}
       .nbf-ico.nbf-adv-ico-open{background:rgba(139,92,246,0.22);border-color:rgba(139,92,246,0.42);color:#a78bfa;}
-      .nbf-ico.nbf-ico-on{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.32);color:#fff;}
-
-      /* --- GROUPE ALIGNEMENT --- */
-      .nbf-align-group{display:flex;gap:3px;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.1);border-radius:20px;padding:3px;}
-      .nbf-align-btn{background:transparent;border:none;}
-      .nbf-align-btn.nbf-align-active{background:rgba(255,255,255,0.16);color:#fff;}
-      .nbf-align-btn svg{width:13px;height:13px;}
-
-      /* --- GRILLE DES TIERS / ELLIPSE VISAGE --- */
-      .nbf-grid{position:absolute;inset:0;z-index:6;pointer-events:none;display:none;}
-      .nbf-grid.nbf-grid-grid{display:block;}
-      .nbf-grid.nbf-grid-face{display:block;}
-      /* lignes grille visibles seulement en mode grid */
-      .nbf-grid-line{position:absolute;background:rgba(255,255,255,0.18);display:none;}
-      .nbf-grid.nbf-grid-grid .nbf-grid-line{display:block;}
-      .nbf-grid-v1{top:0;bottom:0;left:33.333%;width:0.5px;}
-      .nbf-grid-v2{top:0;bottom:0;left:66.666%;width:0.5px;}
-      .nbf-grid-h1{left:0;right:0;top:33.333%;height:0.5px;}
-      .nbf-grid-h2{left:0;right:0;top:66.666%;height:0.5px;}
-      /* ellipse visage visible seulement en mode face */
-      .nbf-face-ellipse{position:absolute;inset:0;width:100%;height:100%;display:none;}
-      .nbf-grid.nbf-grid-face .nbf-face-ellipse{display:block;}
 
       /* --- ZONE TEXTE --- */
       .nbp-focus-text{
