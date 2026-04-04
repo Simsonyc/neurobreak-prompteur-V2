@@ -163,19 +163,32 @@ function nbfApplyWidth() {
     $focusTextInner.style.maxWidth = textWidthPercent + "%";
     nbfApplyAlign();
   }
-  if ($readingZone) {
-    const margin = (100 - textWidthPercent) / 2;
-    $readingZone.style.left = margin + "%";
-    $readingZone.style.right = margin + "%";
-  }
+  nbfApplyReadingZoneAlign();
   if ($focusWidthValue) $focusWidthValue.textContent = textWidthPercent + "%";
+}
+
+// ── Synchroniser la reading zone avec l'alignement ──
+function nbfApplyReadingZoneAlign() {
+  if (!$readingZone) return;
+  const GAP = "16px";
+  const margin = (100 - textWidthPercent) / 2 + "%";
+  if (nbfTextAlign === "left") {
+    $readingZone.style.left = GAP;
+    $readingZone.style.right = margin;
+  } else if (nbfTextAlign === "right") {
+    $readingZone.style.left = margin;
+    $readingZone.style.right = GAP;
+  } else {
+    $readingZone.style.left = margin;
+    $readingZone.style.right = margin;
+  }
 }
 
 // ── Appliquer alignement texte ──
 function nbfApplyAlign() {
   if (!$focusTextInner) return;
   $focusTextInner.style.textAlign = nbfTextAlign;
-  const GAP = "16px"; // marge confort gauche/droite
+  const GAP = "16px";
   if (nbfTextAlign === "left") {
     $focusTextInner.style.marginLeft = GAP;
     $focusTextInner.style.marginRight = "auto";
@@ -191,6 +204,7 @@ function nbfApplyAlign() {
       btn.classList.toggle("nbf-align-active", btn.dataset.align === nbfTextAlign);
     });
   }
+  nbfApplyReadingZoneAlign();
 }
 
 // ── Cycle grille : off → grid → face → off ──
