@@ -23,23 +23,32 @@ const ctx = canvas.getContext("2d");
   const vw = video.videoWidth;
   const vh = video.videoHeight;
 
-  const targetRatio = 9 / 16;
+  // Détecte l'orientation réelle de l'écran
+  const isLandscape = window.innerWidth > window.innerHeight;
 
-  let cropW = vw;
-  let cropH = cropW / targetRatio;
-
-  if (cropH > vh) {
-    cropH = vh;
-    cropW = cropH * targetRatio;
+  if (isLandscape) {
+    // Mode paysage : 16/9, canvas 1280×720
+    const targetRatio = 16 / 9;
+    let cropW = vw;
+    let cropH = cropW / targetRatio;
+    if (cropH > vh) { cropH = vh; cropW = cropH * targetRatio; }
+    const cropX = (vw - cropW) / 2;
+    const cropY = (vh - cropH) / 2;
+    canvas.width = 1280;
+    canvas.height = 720;
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+  } else {
+    // Mode portrait : 9/16, canvas 720×1280
+    const targetRatio = 9 / 16;
+    let cropW = vw;
+    let cropH = cropW / targetRatio;
+    if (cropH > vh) { cropH = vh; cropW = cropH * targetRatio; }
+    const cropX = (vw - cropW) / 2;
+    const cropY = (vh - cropH) / 2;
+    canvas.width = 720;
+    canvas.height = 1280;
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
   }
-
-  const cropX = (vw - cropW) / 2;
-  const cropY = (vh - cropH) / 2;
-
-  canvas.width = 720;
-  canvas.height = 1280;
-
-  ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
   requestAnimationFrame(drawFrame);
 }
@@ -47,11 +56,20 @@ const ctx = canvas.getContext("2d");
 
   async function start() {
     if (stream || !navigator?.mediaDevices?.getUserMedia) return;
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const constraints = {
+      video: {
+        facingMode: "user",
+        width:  { ideal: isLandscape ? 1280 : 720 },
+        height: { ideal: isLandscape ? 720 : 1280 },
+      },
+      audio: false
+    };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = stream;
-	video.onloadedmetadata = () => {
-  drawFrame();
-};
+    video.onloadedmetadata = () => {
+      drawFrame();
+    };
   }
 
   function stop() {
