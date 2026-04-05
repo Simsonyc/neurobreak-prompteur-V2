@@ -494,8 +494,8 @@ handleOrientation();
           <div class="nbf-grid-line nbf-grid-v2"></div>
           <div class="nbf-grid-line nbf-grid-h1"></div>
           <div class="nbf-grid-line nbf-grid-h2"></div>
-          <svg class="nbf-face-ellipse" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="50" cy="38" rx="22" ry="30" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.4"/>
+          <svg class="nbf-face-ellipse" viewBox="0 0 100 160" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="50" cy="58" rx="30" ry="42" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
           </svg>
         </div>
 
@@ -1962,14 +1962,12 @@ function ensureFocusLayer() {
       .nbf-grid{position:absolute;inset:0;z-index:6;pointer-events:none;display:none;}
       .nbf-grid.nbf-grid-grid{display:block;}
       .nbf-grid.nbf-grid-face{display:block;}
-      /* lignes grille visibles seulement en mode grid */
-      .nbf-grid-line{position:absolute;background:rgba(255,255,255,0.18);display:none;}
+      .nbf-grid-line{position:absolute;background:rgba(255,255,255,0.55);display:none;}
       .nbf-grid.nbf-grid-grid .nbf-grid-line{display:block;}
-      .nbf-grid-v1{top:0;bottom:0;left:33.333%;width:0.5px;}
-      .nbf-grid-v2{top:0;bottom:0;left:66.666%;width:0.5px;}
-      .nbf-grid-h1{left:0;right:0;top:33.333%;height:0.5px;}
-      .nbf-grid-h2{left:0;right:0;top:66.666%;height:0.5px;}
-      /* ellipse visage visible seulement en mode face */
+      .nbf-grid-v1{top:0;bottom:0;left:33.333%;width:1px;}
+      .nbf-grid-v2{top:0;bottom:0;left:66.666%;width:1px;}
+      .nbf-grid-h1{left:0;right:0;top:33.333%;height:1px;}
+      .nbf-grid-h2{left:0;right:0;top:66.666%;height:1px;}
       .nbf-face-ellipse{position:absolute;inset:0;width:100%;height:100%;display:none;}
       .nbf-grid.nbf-grid-face .nbf-face-ellipse{display:block;}
 
@@ -2128,54 +2126,51 @@ function ensureFocusLayer() {
          ============================================================ */
       @media (orientation: landscape) {
 
-        /* Topbar : plus compacte */
+        /* Topbar compacte */
         .nbf-topbar{ height:42px; padding:0 10px; }
 
-        /* Zone texte : prend tout sauf la sidebar droite */
-        .nbp-focus-text{
-          top:42px; left:0; right:160px; bottom:0;
-        }
+        /* Zone texte : tout sauf sidebar */
+        .nbp-focus-text{ top:42px; left:0; right:156px; bottom:0; }
 
-        /* Slider vertical : masqué en paysage (intégré dans sidebar) */
+        /* Slider vertical masqué */
         .nbf-vslider-wrap{ display:none; }
 
-        /* Bottombar → sidebar droite verticale */
+        /* Sidebar droite — fond solide, pas de dégradé */
         .nbf-bottombar{
           position:absolute;
           top:0; right:0; bottom:0; left:auto;
-          width:160px;
-          padding:48px 8px 12px;
-          background:linear-gradient(to left, rgba(0,0,0,0.88) 80%, transparent);
+          width:156px;
+          padding:46px 10px 10px;
+          background:rgba(8,9,16,0.92);
+          border-left:0.5px solid rgba(255,255,255,0.08);
           display:flex;
           flex-direction:column;
-          gap:6px;
+          gap:8px;
           overflow-y:auto;
         }
 
-        /* Slider largeur : vertical dans la sidebar */
-        .nbf-hslider-wrap{
-          flex-direction:column;
-          align-items:stretch;
-          gap:4px;
-          margin-bottom:4px;
-        }
-        .nbf-hrange{ height:14px; }
+        /* Slider largeur — horizontal mais compact */
+        .nbf-hslider-wrap{ flex-direction:row; align-items:center; gap:5px; margin-bottom:0; }
+        .nbf-hrange{ height:16px; flex:1; }
+        .nbf-hslider-val{ min-width:24px; font-size:8px; }
 
-        /* Indicateur micro : compact */
-        .nbf-mic-row{ margin-bottom:4px; }
-        .nbf-mic-canvas{ width:80px; flex:1; }
+        /* Micro row compact */
+        .nbf-mic-row{ margin-bottom:0; gap:5px; }
+        .nbf-mic-canvas{ width:60px; flex:1; height:18px; }
+        .nbf-mic-state{ min-width:28px; font-size:8px; }
 
-        /* Blocs vitesse/seuil : empilés verticalement */
-        .nbf-pm-row{ flex-direction:column; gap:4px; margin-bottom:4px; }
-        .nbf-pm-block{ padding:5px 6px; }
-        .nbf-pm-btn{ width:22px; height:22px; font-size:14px; }
-        .nbf-pm-val{ font-size:11px; }
+        /* Vitesse + Seuil empilés */
+        .nbf-pm-row{ flex-direction:column; gap:5px; margin-bottom:0; }
+        .nbf-pm-block{ padding:5px 7px; }
+        .nbf-pm-label{ font-size:8px; margin-bottom:3px; }
+        .nbf-pm-btn{ width:22px; height:22px; font-size:14px; border-radius:6px; }
+        .nbf-pm-val{ font-size:12px; }
 
-        /* Boutons principaux : empilés verticalement */
+        /* Boutons PROMPT / REC / STOP empilés */
         .nbf-btn-row{ flex-direction:column; gap:5px; }
-        .nbf-btn-prompt{ width:100%; height:36px; }
-        .nbf-btn-recpause{ width:100%; height:36px; flex:none; font-size:10px; }
-        .nbf-btn-stop{ width:100%; height:34px; border-radius:10px; }
+        .nbf-btn-prompt{ width:100%; height:34px; font-size:10px; border-radius:10px; }
+        .nbf-btn-recpause{ width:100%; height:34px; flex:none; font-size:10px; border-radius:10px; }
+        .nbf-btn-stop{ width:100%; height:30px; border-radius:10px; }
       }
 
       /* Export modal reste inchangé */
