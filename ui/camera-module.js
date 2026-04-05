@@ -12,7 +12,7 @@ const ctx = canvas.getContext("2d");
   video.playsInline = true;
   video.muted = true;
   video.autoplay = true;
-  video.style.cssText = "width:100%;height:100%;object-fit:cover;transform:scaleX(-1);";
+  video.style.cssText = "width:100%;height:100%;object-fit:cover;";
   wrap.appendChild(video);
   function drawFrame() {
   if (!video.videoWidth) {
@@ -22,33 +22,31 @@ const ctx = canvas.getContext("2d");
 
   const vw = video.videoWidth;
   const vh = video.videoHeight;
-
-  // Détecte l'orientation réelle de l'écran
   const isLandscape = window.innerWidth > window.innerHeight;
 
   if (isLandscape) {
-    // Mode paysage : 16/9, canvas 1280×720
-    const targetRatio = 16 / 9;
-    let cropW = vw;
-    let cropH = cropW / targetRatio;
-    if (cropH > vh) { cropH = vh; cropW = cropH * targetRatio; }
-    const cropX = (vw - cropW) / 2;
-    const cropY = (vh - cropH) / 2;
     canvas.width = 1280;
     canvas.height = 720;
-    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
   } else {
-    // Mode portrait : 9/16, canvas 720×1280
-    const targetRatio = 9 / 16;
-    let cropW = vw;
-    let cropH = cropW / targetRatio;
-    if (cropH > vh) { cropH = vh; cropW = cropH * targetRatio; }
-    const cropX = (vw - cropW) / 2;
-    const cropY = (vh - cropH) / 2;
     canvas.width = 720;
     canvas.height = 1280;
-    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
   }
+
+  // Calcul cover : remplit le canvas sans zoom excessif
+  const scaleX = canvas.width / vw;
+  const scaleY = canvas.height / vh;
+  const scale = Math.min(scaleX, scaleY); // "contain" — pas de zoom forcé
+  const drawW = vw * scale;
+  const drawH = vh * scale;
+  const offsetX = (canvas.width - drawW) / 2;
+  const offsetY = (canvas.height - drawH) / 2;
+
+  // Miroir horizontal (selfie)
+  ctx.save();
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, canvas.width - offsetX - drawW, offsetY, drawW, drawH);
+  ctx.restore();
 
   requestAnimationFrame(drawFrame);
 }
@@ -56,12 +54,11 @@ const ctx = canvas.getContext("2d");
 
   async function start() {
     if (stream || !navigator?.mediaDevices?.getUserMedia) return;
-    const isLandscape = window.innerWidth > window.innerHeight;
     const constraints = {
       video: {
         facingMode: "user",
-        width:  { ideal: isLandscape ? 1280 : 720 },
-        height: { ideal: isLandscape ? 720 : 1280 },
+        width:  { ideal: 1280 },
+        height: { ideal: 720 },
       },
       audio: false
     };
