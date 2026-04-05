@@ -2123,6 +2123,61 @@ function ensureFocusLayer() {
       .nbp-focus-hint,.nbp-focus-rec-status,.nbp-advanced,
       .nbp-rule-of-thirds,.nbp-text-width,.nbp-reading-zone-control{display:none!important;}
 
+      /* ============================================================
+         MODE PAYSAGE — sidebar droite, caméra plein écran
+         ============================================================ */
+      @media (orientation: landscape) {
+
+        /* Topbar : plus compacte */
+        .nbf-topbar{ height:42px; padding:0 10px; }
+
+        /* Zone texte : prend tout sauf la sidebar droite */
+        .nbp-focus-text{
+          top:42px; left:0; right:160px; bottom:0;
+        }
+
+        /* Slider vertical : masqué en paysage (intégré dans sidebar) */
+        .nbf-vslider-wrap{ display:none; }
+
+        /* Bottombar → sidebar droite verticale */
+        .nbf-bottombar{
+          position:absolute;
+          top:0; right:0; bottom:0; left:auto;
+          width:160px;
+          padding:48px 8px 12px;
+          background:linear-gradient(to left, rgba(0,0,0,0.88) 80%, transparent);
+          display:flex;
+          flex-direction:column;
+          gap:6px;
+          overflow-y:auto;
+        }
+
+        /* Slider largeur : vertical dans la sidebar */
+        .nbf-hslider-wrap{
+          flex-direction:column;
+          align-items:stretch;
+          gap:4px;
+          margin-bottom:4px;
+        }
+        .nbf-hrange{ height:14px; }
+
+        /* Indicateur micro : compact */
+        .nbf-mic-row{ margin-bottom:4px; }
+        .nbf-mic-canvas{ width:80px; flex:1; }
+
+        /* Blocs vitesse/seuil : empilés verticalement */
+        .nbf-pm-row{ flex-direction:column; gap:4px; margin-bottom:4px; }
+        .nbf-pm-block{ padding:5px 6px; }
+        .nbf-pm-btn{ width:22px; height:22px; font-size:14px; }
+        .nbf-pm-val{ font-size:11px; }
+
+        /* Boutons principaux : empilés verticalement */
+        .nbf-btn-row{ flex-direction:column; gap:5px; }
+        .nbf-btn-prompt{ width:100%; height:36px; }
+        .nbf-btn-recpause{ width:100%; height:36px; flex:none; font-size:10px; }
+        .nbf-btn-stop{ width:100%; height:34px; border-radius:10px; }
+      }
+
       /* Export modal reste inchangé */
 	        .nbp-export-modal{
         position: fixed;
