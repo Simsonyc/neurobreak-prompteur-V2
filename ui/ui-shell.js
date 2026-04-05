@@ -2129,11 +2129,16 @@ function ensureFocusLayer() {
         /* Topbar compacte */
         .nbf-topbar{ height:42px; padding:0 10px; }
 
-        /* Zone texte : tout sauf sidebar */
-        .nbp-focus-text{ top:42px; left:0; right:156px; bottom:0; }
+        /* Zone texte : espace entre slider gauche et sidebar droite */
+        .nbp-focus-text{ top:42px; left:44px; right:156px; bottom:0; }
 
-        /* Slider vertical masqué */
-        .nbf-vslider-wrap{ display:none; }
+        /* Slider vertical — migre à gauche */
+        .nbf-vslider-wrap{
+          display:flex;
+          right:auto; left:0;
+          top:42px; bottom:0;
+          width:44px;
+        }
 
         /* Sidebar droite — fond solide, pas de dégradé */
         .nbf-bottombar{
