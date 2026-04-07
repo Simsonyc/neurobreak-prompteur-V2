@@ -877,7 +877,6 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
     throw new Error("Recorder: aucune piste vidéo caméra disponible.");
   }
 
-  // Audio optional: record without audio if mic stream not ready
   if (!audioTracks.length) {
     console.warn("Recorder: aucune piste audio — enregistrement vidéo seul.");
   }
@@ -886,6 +885,27 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
     ...videoTracks,
     ...audioTracks,
   ]);
+}
+
+// Choisit le meilleur mimeType supporté par le navigateur
+function getBestMimeType() {
+  const candidates = [
+    "video/webm;codecs=vp8,opus",  // Chrome desktop
+    "video/webm;codecs=vp9,opus",  // Chrome moderne
+    "video/webm;codecs=h264,opus", // Chrome Android
+    "video/webm;codecs=avc1,opus", // variante Android
+    "video/webm",                  // fallback webm sans codec précisé
+    "video/mp4;codecs=h264,aac",   // Safari iOS / certains Android
+    "video/mp4",                   // fallback mp4
+  ];
+  for (const type of candidates) {
+    if (MediaRecorder.isTypeSupported(type)) {
+      console.log("[REC] mimeType choisi:", type);
+      return type;
+    }
+  }
+  console.warn("[REC] Aucun mimeType connu supporté, MediaRecorder choisira seul.");
+  return "";
 }
   function formatRecDuration(ms) {
     const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -955,7 +975,7 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
         console.error("REC: impossible de construire le stream:", err);
         return;
       }
-      recorder.start(mixedStream);
+      recorder.start(mixedStream, { mimeType: getBestMimeType() });
       recStartedAt = Date.now();
       recPausedAccumMs = 0;
       recPauseStartedAt = 0;

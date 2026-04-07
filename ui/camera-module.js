@@ -12,8 +12,10 @@ const ctx = canvas.getContext("2d");
   video.playsInline = true;
   video.muted = true;
   video.autoplay = true;
-  video.style.cssText = "width:100%;height:100%;object-fit:cover;";
+  video.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"; // caché, sert juste de source
+  canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;";
   wrap.appendChild(video);
+  wrap.appendChild(canvas);
   function drawFrame() {
   if (!video.videoWidth) {
     requestAnimationFrame(drawFrame);
@@ -32,10 +34,10 @@ const ctx = canvas.getContext("2d");
     canvas.height = 1280;
   }
 
-  // Calcul cover : remplit le canvas sans zoom excessif
+  // Cover : remplit tout le canvas, recadre si nécessaire (comme object-fit:cover)
   const scaleX = canvas.width / vw;
   const scaleY = canvas.height / vh;
-  const scale = Math.min(scaleX, scaleY); // "contain" — pas de zoom forcé
+  const scale = Math.max(scaleX, scaleY);
   const drawW = vw * scale;
   const drawH = vh * scale;
   const offsetX = (canvas.width - drawW) / 2;
