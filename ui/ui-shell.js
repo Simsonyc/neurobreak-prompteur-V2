@@ -2034,7 +2034,7 @@ function ensureFocusLayer() {
       .nbf-bottombar{
         position:absolute;bottom:0;left:0;right:0;z-index:25;
         padding:8px 14px 16px;
-        background:linear-gradient(to top,rgba(0,0,0,0.88) 80%,transparent);
+        background:transparent;
       }
 
       .nbf-hslider-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:10px;padding:6px 8px;}
