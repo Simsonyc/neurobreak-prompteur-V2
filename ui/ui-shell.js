@@ -2037,51 +2037,55 @@ function ensureFocusLayer() {
         background:linear-gradient(to top,rgba(0,0,0,0.88) 80%,transparent);
       }
 
-      .nbf-hslider-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-      .nbf-hslider-lbl{font-size:9px;color:rgba(255,255,255,0.28);font-family:var(--nbp-font-mono);flex-shrink:0;}
+      .nbf-hslider-wrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:10px;padding:6px 8px;}
+      .nbf-hslider-lbl{font-size:9px;color:rgba(255,255,255,0.55);font-family:var(--nbp-font-mono);flex-shrink:0;}
       .nbf-hrange{flex:1;-webkit-appearance:none;appearance:none;height:20px;border-radius:10px;background:rgba(255,255,255,0.08);outline:none;cursor:pointer;accent-color:#8b5cf6;touch-action:none;}
       .nbf-hrange::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#8b5cf6;cursor:pointer;box-shadow:0 0 0 6px rgba(139,92,246,0.15);}
       .nbf-hrange::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#8b5cf6;border:none;cursor:pointer;box-shadow:0 0 0 6px rgba(139,92,246,0.15);}
       .nbf-hslider-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:var(--nbp-font-mono);min-width:28px;text-align:right;flex-shrink:0;}
 
-      .nbf-mic-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+      .nbf-mic-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:8px;padding:5px 8px;}
       .nbf-mic-ico{width:13px;height:13px;stroke:rgba(255,255,255,0.4);flex-shrink:0;}
       .nbf-mic-canvas{width:160px;flex:none;height:24px;border-radius:4px;background:transparent;display:block;}
       .nbf-mic-state{font-size:9px;color:rgba(255,255,255,0.3);font-family:var(--nbp-font-mono);min-width:36px;text-align:right;}
 
       .nbf-pm-row{display:flex;gap:8px;margin-bottom:9px;}
-      .nbf-pm-block{flex:1;background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:7px 8px;}
-      .nbf-pm-label{font-size:9px;color:rgba(255,255,255,0.30);font-family:var(--nbp-font-mono);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;}
+      .nbf-pm-block{flex:1;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:0.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:7px 8px;}
+      .nbf-pm-label{font-size:9px;color:rgba(255,255,255,0.55);font-family:var(--nbp-font-mono);letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;}
       .nbf-pm-ctrl{display:flex;align-items:center;justify-content:space-between;gap:4px;}
-      .nbf-pm-btn{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.75);font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .12s;flex-shrink:0;line-height:1;font-family:var(--nbp-font-mono);}
-      .nbf-pm-btn:hover{background:rgba(255,255,255,0.14);}
-      .nbf-pm-btn:active{background:rgba(139,92,246,0.28);}
-      .nbf-pm-val{font-size:13px;color:rgba(255,255,255,0.85);font-family:var(--nbp-font-mono);text-align:center;flex:1;}
+      .nbf-pm-btn{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,0.12);border:0.5px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.9);font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .12s;flex-shrink:0;line-height:1;font-family:var(--nbp-font-mono);}
+      .nbf-pm-btn:hover{background:rgba(255,255,255,0.22);}
+      .nbf-pm-btn:active{background:rgba(139,92,246,0.45);}
+      .nbf-pm-val{font-size:13px;color:#fff;font-family:var(--nbp-font-mono);text-align:center;flex:1;}
 
       /* --- BOUTONS PRINCIPAUX --- */
       .nbf-btn-row{display:flex;gap:8px;align-items:center;}
 
       .nbf-btn-prompt{
         width:82px;flex-shrink:0;height:46px;border-radius:13px;
-        border:0.5px solid rgba(139,92,246,0.45);background:rgba(139,92,246,0.15);
-        color:rgba(255,255,255,0.88);font-size:11px;font-family:var(--nbp-font);font-weight:600;
+        border:0.5px solid rgba(139,92,246,0.6);
+        background:rgba(60,30,120,0.72);
+        backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        color:rgba(255,255,255,0.95);font-size:11px;font-family:var(--nbp-font);font-weight:600;
         cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
         transition:background .15s;line-height:1;
       }
-      .nbf-btn-prompt:hover{background:rgba(139,92,246,0.26);}
-      .nbf-btn-prompt.nbf-btn-prompt-on{background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.4);color:rgba(74,222,128,0.9);}
+      .nbf-btn-prompt:hover{background:rgba(80,40,160,0.82);}
+      .nbf-btn-prompt.nbf-btn-prompt-on{background:rgba(20,80,40,0.75);border-color:rgba(74,222,128,0.5);color:rgba(74,222,128,0.95);}
       .nbf-btn-prompt svg{width:13px;height:13px;}
 
       .nbf-btn-recpause{
         flex:1;height:46px;border-radius:13px;
-        border:0.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);
-        color:rgba(255,255,255,0.78);font-size:12px;font-family:var(--nbp-font);font-weight:600;
+        border:0.5px solid rgba(255,255,255,0.2);
+        background:rgba(0,0,0,0.62);
+        backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        color:rgba(255,255,255,0.92);font-size:12px;font-family:var(--nbp-font);font-weight:600;
         cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
         transition:background .15s,border-color .15s;
       }
-      .nbf-btn-recpause:hover{background:rgba(255,255,255,0.11);}
-      .nbf-btn-recpause.nbf-btn-recpause-on{background:rgba(74,222,128,0.15);border-color:rgba(74,222,128,0.65);color:#86efac;box-shadow:0 0 0 1px rgba(74,222,128,0.2);}
-      .nbf-btn-recpause.nbf-btn-recpause-paused{background:rgba(251,191,36,0.18);border-color:rgba(251,191,36,0.65);color:#fde68a;box-shadow:0 0 0 1px rgba(251,191,36,0.2);}
+      .nbf-btn-recpause:hover{background:rgba(0,0,0,0.75);}
+      .nbf-btn-recpause.nbf-btn-recpause-on{background:rgba(20,80,40,0.75);border-color:rgba(74,222,128,0.65);color:#86efac;box-shadow:0 0 0 1px rgba(74,222,128,0.2);}
+      .nbf-btn-recpause.nbf-btn-recpause-paused{background:rgba(80,50,0,0.75);border-color:rgba(251,191,36,0.65);color:#fde68a;box-shadow:0 0 0 1px rgba(251,191,36,0.2);}
       .nbf-btn-recpause svg{width:14px;height:14px;}
       .nbf-rec-dot{width:8px;height:8px;border-radius:50%;background:rgba(239,68,68,0.5);flex-shrink:0;transition:background .2s;}
       .nbf-rec-dot.nbf-rec-dot-pulse{background:#4ade80;animation:nbf-recdot .8s ease-in-out infinite;}
@@ -2089,11 +2093,13 @@ function ensureFocusLayer() {
 
       .nbf-btn-stop{
         width:46px;height:46px;border-radius:13px;
-        background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.09);
+        background:rgba(0,0,0,0.55);
+        backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        border:0.5px solid rgba(255,255,255,0.15);
         display:flex;align-items:center;justify-content:center;cursor:pointer;
-        transition:background .15s,border-color .15s;flex-shrink:0;color:rgba(255,255,255,0.45);
+        transition:background .15s,border-color .15s;flex-shrink:0;color:rgba(255,255,255,0.65);
       }
-      .nbf-btn-stop:hover{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.32);color:rgba(239,68,68,0.8);}
+      .nbf-btn-stop:hover{background:rgba(180,20,20,0.6);border-color:rgba(239,68,68,0.5);color:#fff;}
       .nbf-btn-stop svg{width:14px;height:14px;}
 
       /* --- PANNEAU AVANCÉ --- */
@@ -2140,14 +2146,14 @@ function ensureFocusLayer() {
           width:44px;
         }
 
-        /* Sidebar droite — fond solide, pas de dégradé */
+        /* Sidebar droite — transparente, vidéo visible derrière */
         .nbf-bottombar{
           position:absolute;
           top:0; right:0; bottom:0; left:auto;
           width:156px;
-          padding:46px 10px 10px;
-          background:rgba(8,9,16,0.92);
-          border-left:0.5px solid rgba(255,255,255,0.08);
+          padding:46px 8px 10px;
+          background:transparent;
+          border-left:none;
           display:flex;
           flex-direction:column;
           gap:8px;
