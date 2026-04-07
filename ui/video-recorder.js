@@ -38,22 +38,30 @@ export function createVideoRecorder(userConfig = {}) {
       throw new Error("MediaRecorder non supporté par ce navigateur.");
     }
 
+    const candidates = [
+      "video/webm;codecs=vp9,opus",   // Chrome desktop moderne
+      "video/webm;codecs=vp8,opus",   // Chrome desktop classique
+      "video/webm;codecs=h264,opus",  // Chrome Android
+      "video/webm;codecs=avc1,opus",  // variante Android
+      "video/webm",                   // fallback webm générique
+      "video/mp4;codecs=h264,aac",    // Safari iOS / Firefox Android
+      "video/mp4",                    // fallback mp4 générique
+    ];
+
+    // Si un mimeType config est fourni et supporté, on le prend en priorité
     if (cfg.mimeType && MediaRecorder.isTypeSupported(cfg.mimeType)) {
+      console.log("[REC] mimeType config:", cfg.mimeType);
       return cfg.mimeType;
     }
 
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
-      return "video/webm;codecs=vp9,opus";
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log("[REC] mimeType choisi:", type);
+        return type;
+      }
     }
 
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
-      return "video/webm;codecs=vp8,opus";
-    }
-
-    if (MediaRecorder.isTypeSupported("video/webm")) {
-      return "video/webm";
-    }
-
+    console.warn("[REC] Aucun mimeType connu supporté, MediaRecorder choisira seul.");
     return "";
   }
 
