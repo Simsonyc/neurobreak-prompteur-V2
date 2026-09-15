@@ -175,7 +175,11 @@ export function createCoreEngine(initial = {}) {
 
       case EVENTS.START_FOCUS: {
         if (canStartFocus()) {
+          // On démarre en attente de voix : le défilement ne doit
+          // commencer qu'une fois une vraie détection de parole reçue
+          // (EVENTS.AUDIO_SPEAKING_TRUE), pas dès le clic sur "démarrer".
           toFocusRunning();
+          toPausedAudio();
         }
         return { ...s };
       }

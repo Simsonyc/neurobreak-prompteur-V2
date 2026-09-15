@@ -23,6 +23,7 @@ export function createAudioEngine(userConfig = {}) {
     smoothingTimeConstant: 0.8,    // lissage WebAudio natif — clé de la stabilité
     confidenceCeilRms:     0.08,
     gracePeriodMs:         2000,
+    noSignalDelayMs:       1500,   // hystérésis perte de signal — évite les micro-coupures
 
     ...userConfig,
   };
@@ -41,6 +42,9 @@ export function createAudioEngine(userConfig = {}) {
   let isSpeaking           = false;
   let silenceStartedAt     = 0;   // début du silence en cours
   let lastSilenceDurationMs = 0;  // durée du dernier silence (→ motion catchup)
+
+  // ── Timer dédié à la perte de signal (indépendant, avec hystérésis) ──
+  let lastAboveMinSignalAt = 0;   // dernière frame où rms >= minSignalRms
 
   let noSignal  = true;
   let lastRms   = 0;
@@ -119,6 +123,7 @@ export function createAudioEngine(userConfig = {}) {
     isSpeaking            = false;
     silenceStartedAt      = 0;
     lastSilenceDurationMs = 0;
+    lastAboveMinSignalAt  = t;
     noSignal              = true;
     lastRms               = 0;
     internalStartTime     = t;
@@ -142,6 +147,7 @@ export function createAudioEngine(userConfig = {}) {
     isSpeaking            = false;
     silenceStartedAt      = 0;
     lastSilenceDurationMs = 0;
+    lastAboveMinSignalAt  = 0;
     noSignal              = true;
     lastRms               = 0;
     internalStartTime     = 0;
@@ -158,17 +164,15 @@ export function createAudioEngine(userConfig = {}) {
                noSignal: true, hasSignal: false, rms: 0 };
     }
 
-    // Grace period — on renvoie speaking:true le temps que le micro chauffe
+    // Grace period — protège uniquement contre une fausse alerte "pas de
+    // signal" le temps que le micro chauffe. La détection de parole, elle,
+    // reste réelle dès la première frame (sinon le défilement démarre
+    // tout seul avant que l'utilisateur ait prononcé un mot).
     const inGrace = internalStartTime && (t - internalStartTime) < cfg.gracePeriodMs;
     const rms = computeRms();
     lastRms = rms;
 
-    if (inGrace) {
-      return { isSpeaking: true, latencyMs: 0, confidence: 0.5,
-               noSignal: false, hasSignal: true, rms };
-    }
-
-    // ── Logique miroir : un seul timer ───────────────────────
+    // ── Logique miroir : un seul timer pour isSpeaking ───────────
     if (rms >= cfg.thresholdRms) {
       // Signal détecté
       if (!isSpeaking) {
@@ -188,7 +192,16 @@ export function createAudioEngine(userConfig = {}) {
       }
     }
 
-    noSignal = rms < cfg.minSignalRms;
+    // ── Perte de signal : timer indépendant AVEC hystérésis ─────
+    // (sans cette hystérésis, un micro-creux d'une seule frame sous
+    // minSignalRms — respiration, consonne occlusive — coupe le
+    // défilement alors qu'on parle toujours, et comme isSpeaking ne
+    // "bascule" pas dans ce cas, plus rien ne relance le scroll ensuite)
+    if (rms >= cfg.minSignalRms) {
+      lastAboveMinSignalAt = t;
+    }
+    noSignal = !inGrace && (t - lastAboveMinSignalAt) > cfg.noSignalDelayMs;
+
     const confidence = isSpeaking ? clamp01(rms / cfg.confidenceCeilRms) : 0;
 
     return {
@@ -221,10 +234,12 @@ export function createAudioEngine(userConfig = {}) {
         noSignal,
         isSpeaking,
         lastAboveThresholdAt,
+        lastAboveMinSignalAt,
         silenceStartedAt,
         lastSilenceDurationMs,
         effectiveThreshold:   cfg.thresholdRms,
         effectiveSilenceMs:   cfg.silenceDelayMs,
+        effectiveNoSignalMs:  cfg.noSignalDelayMs,
         audioState:           audioCtx?.state || "closed",
         sampleRate:           audioCtx?.sampleRate || 0,
         cfg: { ...cfg, deviceId: cfg.deviceId ?? null },
