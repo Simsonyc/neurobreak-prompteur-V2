@@ -10,6 +10,16 @@
 const SETTINGS_KEY = "neurobreak_prompt_settings";
 const TEXT_KEY = "neurobreak_prompt_text";
 
+const DEFAULT_WELCOME_TEXT =
+  "Bonjour, bienvenue sur le prompteur ConvertBubble.\n" +
+  "Avant de commencer, lis ce texte pour prendre en main facilement le prompteur.\n" +
+  "Tu peux régler la vitesse de défilement et le seuil de sensibilité du micro pour que le prompteur suive ta voix.\n" +
+  "Les valeurs sont définies par défaut et sont dans le standard.\n" +
+  "Inutile de sauter des lignes pour ton texte, sinon ça va perturber le défilement.\n" +
+  "Clique d'abord sur REC pour mettre la caméra en marche et te voir.\n" +
+  "Ensuite lance le prompteur en cliquant sur Prompt.\n" +
+  "Quand tu cliques sur Stop, tu peux télécharger ta vidéo au format WebM, il suffit ensuite de la mettre dans ton éditeur vidéo pour transformer le format.";
+
 function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -57,7 +67,6 @@ import { STATES, EVENTS } from "../engine/contracts.js";
 import { createDirectorMode } from "./director-mode.js";
 import { createCameraModule } from "./camera-module.js";
 import { createVideoRecorder } from "./video-recorder.js";
-import { createMp4Converter } from "./mp4-converter.js";
 
 export function createUIShell() {
     let dispatch = null;
@@ -91,7 +100,6 @@ window.addEventListener("orientationchange", handleOrientation);
 // camera (SELFIE_FOCUS)
     let camera = null;
 let recorder = null;
-let mp4Converter = null;
 let audioEngine = null;
 let $focusRecBtn = null;
   let taCommitTimer = null;
@@ -102,7 +110,7 @@ let $focusRecBtn = null;
 
     let $focusOverlay, $focusTextWrap, $focusTextInner, $focusWidthRange, $focusWidthValue, $readingZone, $focusZoneRange, $focusZoneValue, $focusPromptBtn;
 let $focusBtnPause, $focusBtnStop, $focusHint, $focusRecStatus;
-let $exportModal, $exportBtnWebm, $exportBtnMp4, $exportBtnRetake, $exportBtnClose;
+let $exportModal, $exportBtnWebm, $exportBtnRetake, $exportBtnClose;
 let lastRecordingResult = null;
 let textWidthPercent = 75, readingZoneTop = 38, promptManualArmed = false;
 const initialTextOffsetY = 120;
@@ -326,10 +334,12 @@ function nbfUpdatePrompt(promptState) {
   bind();
 handleOrientation(); 
   const savedTextDraft = loadTextDraft();
-  if (savedTextDraft && typeof savedTextDraft.text === "string") {
-    loadedText = savedTextDraft.text;
-    loadedFilename = savedTextDraft.filename || "textarea";
+  const hasSavedText = !!(savedTextDraft && typeof savedTextDraft.text === "string");
 
+  loadedText = hasSavedText ? savedTextDraft.text : DEFAULT_WELCOME_TEXT;
+  loadedFilename = hasSavedText ? (savedTextDraft.filename || "textarea") : "textarea";
+
+  {
     const $ta = root?.querySelector(".nbp-ta");
     if ($ta) $ta.value = loadedText;
 
@@ -390,7 +400,6 @@ handleOrientation();
     // camera module mounted behind focus overlay
   camera = createCameraModule($focusOverlay);
   recorder = createVideoRecorder();
-  mp4Converter = createMp4Converter();
 }
 
 
@@ -613,9 +622,6 @@ handleOrientation();
       <button class="nbp-btn nbp-btn-primary" type="button" data-action="export-webm">
         Télécharger en WebM
       </button>
-      <button class="nbp-btn" type="button" data-action="export-mp4">
-        Convertir en MP4
-      </button>
       <button class="nbp-btn" type="button" data-action="export-retake">
         Refaire une prise
       </button>
@@ -658,7 +664,6 @@ $focusHint       = $app.querySelector(".nbp-focus-hint");
 $focusRecStatus  = $app.querySelector(".nbp-focus-rec-status");
 $exportModal     = $app.querySelector(".nbp-export-modal");
 $exportBtnWebm   = $app.querySelector('[data-action="export-webm"]');
-$exportBtnMp4    = $app.querySelector('[data-action="export-mp4"]');
 $exportBtnRetake = $app.querySelector('[data-action="export-retake"]');
 $exportBtnClose  = $app.querySelector('[data-action="export-close"]');
 
@@ -981,9 +986,6 @@ $adv.innerHTML = `<button class="nbp-adv-toggle" type="button" aria-expanded="fa
 
     updateRecButton();
   }
-function makeMp4FileName() {
-  return `neurobreak-selfie-${Date.now()}.mp4`;
-}
     function downloadRecording(result) {
     const url = typeof result?.url === "string" ? result.url : "";
     if (!url) return;
@@ -1169,54 +1171,6 @@ $exportBtnWebm?.addEventListener("click", () => {
     downloadRecording(lastRecordingResult);
   }
   closeExportModal();
-});
-
-$exportBtnMp4?.addEventListener("click", async () => {
-  if (!lastRecordingResult?.blob || !mp4Converter) return;
-
-  const previousLabel = $exportBtnMp4.textContent;
-  const previousWebmLabel = $exportBtnWebm?.textContent || "";
-  const previousRetakeLabel = $exportBtnRetake?.textContent || "";
-  const previousCloseLabel = $exportBtnClose?.textContent || "";
-
-  try {
-    $exportBtnMp4.disabled = true;
-    if ($exportBtnWebm) $exportBtnWebm.disabled = true;
-    if ($exportBtnRetake) $exportBtnRetake.disabled = true;
-    if ($exportBtnClose) $exportBtnClose.disabled = true;
-
-    $exportBtnMp4.textContent = "Conversion MP4...";
-
-    const mp4Result = await mp4Converter.convertBlobToMp4(lastRecordingResult.blob, {
-      fileName: makeMp4FileName(),
-      onProgress: ({ step, ratio }) => {
-        if (step === "converting") {
-          const pct = Math.max(0, Math.min(100, Math.round((ratio || 0) * 100)));
-          $exportBtnMp4.textContent = `Conversion MP4... ${pct}%`;
-        }
-      },
-      onLog: (message) => {
-        console.log("[MP4]", message);
-      },
-    });
-
-    mp4Converter.downloadMp4(mp4Result);
-    mp4Converter.revokeUrl(mp4Result);
-    closeExportModal();
-  } catch (err) {
-    console.error("MP4 conversion error:", err);
-    alert("La conversion MP4 a échoué sur cet appareil ou ce navigateur.");
-  } finally {
-    $exportBtnMp4.disabled = false;
-    if ($exportBtnWebm) $exportBtnWebm.disabled = false;
-    if ($exportBtnRetake) $exportBtnRetake.disabled = false;
-    if ($exportBtnClose) $exportBtnClose.disabled = false;
-
-    $exportBtnMp4.textContent = previousLabel;
-    if ($exportBtnWebm) $exportBtnWebm.textContent = previousWebmLabel;
-    if ($exportBtnRetake) $exportBtnRetake.textContent = previousRetakeLabel;
-    if ($exportBtnClose) $exportBtnClose.textContent = previousCloseLabel;
-  }
 });
 
 $exportBtnRetake?.addEventListener("click", () => {
