@@ -117,6 +117,17 @@ export function createCoreEngine(initial = {}) {
     s.pauseReason = "ORIENTATION";
   }
 
+  // À utiliser partout où l'on (re)lance la lecture SANS venir de recevoir
+  // une détection de parole réelle (START_FOCUS, RESUME manuel, reprise
+  // d'orientation) : on arme FOCUS_RUNNING comme cible, mais on reste en
+  // pause "AUDIO" tant qu'aucune parole n'a été détectée. Seul le handler
+  // EVENTS.AUDIO_SPEAKING_TRUE doit appeler toFocusRunning() directement,
+  // car lui seul sait qu'une voix vient d'être réellement entendue.
+  function toFocusRunningPendingVoice() {
+    toFocusRunning();
+    toPausedAudio();
+  }
+
   function canStartFocus() {
     return (
       s.state === STATES.PRE_FOCUS ||
@@ -178,8 +189,7 @@ export function createCoreEngine(initial = {}) {
           // On démarre en attente de voix : le défilement ne doit
           // commencer qu'une fois une vraie détection de parole reçue
           // (EVENTS.AUDIO_SPEAKING_TRUE), pas dès le clic sur "démarrer".
-          toFocusRunning();
-          toPausedAudio();
+          toFocusRunningPendingVoice();
         }
         return { ...s };
       }
@@ -202,17 +212,21 @@ export function createCoreEngine(initial = {}) {
         // RESUME (manuel) ne doit PAS auto-resume si stop/ready
         if (!canResumeManual()) return { ...s };
 
-        // Si pause manuelle: on reprend le target mémorisé
+        // Si pause manuelle: on reprend le target mémorisé.
+        // Vers FOCUS_RUNNING: on repasse par l'attente de voix (le clic sur
+        // "resume" ne prouve pas qu'on est déjà en train de parler).
         if (s.state === STATES.PAUSED_MANUAL) {
-          if (resumeTargetState === STATES.FOCUS_RUNNING) toFocusRunning();
+          if (resumeTargetState === STATES.FOCUS_RUNNING) toFocusRunningPendingVoice();
           else if (resumeTargetState === STATES.PRE_FOCUS) toPreFocus();
           else toReady();
           return { ...s };
         }
 
-        // Si pause audio/orientation: RESUME force la reprise (priorité user)
+        // Si pause audio/orientation: RESUME force la reprise (priorité user),
+        // mais on attend quand même une détection de voix réelle avant de
+        // redémarrer le défilement.
         if (s.state === STATES.PAUSED_AUDIO || s.state === STATES.PAUSED_ORIENTATION) {
-          if (resumeTargetState === STATES.FOCUS_RUNNING) toFocusRunning();
+          if (resumeTargetState === STATES.FOCUS_RUNNING) toFocusRunningPendingVoice();
           else if (resumeTargetState === STATES.PRE_FOCUS) toPreFocus();
           else toReady();
         }
@@ -292,9 +306,12 @@ export function createCoreEngine(initial = {}) {
         }
 
         // orientation OK: si on était en pause orientation, on reprend la cible
+        // (vers FOCUS_RUNNING: on attend une vraie détection de voix avant
+        // de redémarrer le défilement, le retour d'orientation ne prouve
+        // pas qu'on est en train de parler)
         if (s.state === STATES.PAUSED_ORIENTATION) {
           if (resumeTargetIsRunning || resumeTargetState === STATES.FOCUS_RUNNING) {
-            toFocusRunning();
+            toFocusRunningPendingVoice();
           } else if (resumeTargetState === STATES.PRE_FOCUS) {
             toPreFocus();
           } else {
